@@ -16,3 +16,6 @@ path = "src/main.rs"
 [dependencies]
 argh = "0.1.3"
 human-panic = "1.0.1"
+log = { version = "0.4.8", features = ["std"] }
+termcolor = "1.1.0"
+atty = "0.2.14"
