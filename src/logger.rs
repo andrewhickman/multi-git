@@ -4,7 +4,7 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 pub fn init(options: &Options) {
     log::set_boxed_logger(Box::new(Logger {
-        writer: StandardStream::stderr(options.color_choice()),
+        writer: StandardStream::stderr(options.color_choice),
     }))
     .unwrap();
     log::set_max_level(options.level_filter());
@@ -14,23 +14,10 @@ pub struct Options {
     pub debug: bool,
     pub trace: bool,
     pub quiet: bool,
-    pub color_choice: Option<ColorChoice>,
+    pub color_choice: ColorChoice,
 }
 
 impl Options {
-    fn color_choice(&self) -> ColorChoice {
-        match self.color_choice {
-            Some(ColorChoice::Auto) | None => {
-                if atty::is(atty::Stream::Stderr) {
-                    ColorChoice::Auto
-                } else {
-                    ColorChoice::Never
-                }
-            }
-            Some(color_choice) => color_choice,
-        }
-    }
-
     fn level_filter(&self) -> log::LevelFilter {
         if self.quiet {
             log::LevelFilter::Off
@@ -89,7 +76,7 @@ impl Logger {
             writeln!(writer, "{}", first)?;
         }
         for line in lines {
-            writeln!(writer, "{:>pad$}  {}", "", line, pad = PAD)?;
+            writeln!(writer, "{:>pad$} {}", "", line, pad = PAD)?;
         }
 
         Ok(())

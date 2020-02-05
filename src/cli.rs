@@ -12,7 +12,7 @@ pub fn parse_args() -> Args {
 pub struct Args {
     #[argh(subcommand)]
     pub command: Command,
-    #[argh(switch, description = "don't print anything to stderr")]
+    #[argh(switch, short = 'q', description = "don't print anything to stderr")]
     pub quiet: bool,
     #[argh(switch, description = "enable debug logging")]
     pub debug: bool,
@@ -55,7 +55,20 @@ impl Args {
             quiet: self.quiet,
             debug: self.debug,
             trace: self.trace,
-            color_choice: self.color,
+            color_choice: self.color_choice(atty::Stream::Stderr),
+        }
+    }
+
+    pub fn color_choice(&self, stream: atty::Stream) -> ColorChoice {
+        match self.color {
+            Some(ColorChoice::Auto) | None => {
+                if atty::is(stream) {
+                    ColorChoice::Auto
+                } else {
+                    ColorChoice::Never
+                }
+            }
+            Some(color_choice) => color_choice,
         }
     }
 }

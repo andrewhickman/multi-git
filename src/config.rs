@@ -7,9 +7,11 @@ use serde::{de, Deserialize, Deserializer};
 pub const CONFIG_PATH: &str = "MULTIGIT_CONFIG_PATH";
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     #[serde(deserialize_with = "deserialize_path")]
     root: PathBuf,
+    #[serde(default, rename = "alias")]
     aliases: Vec<Alias>,
 }
 
@@ -20,10 +22,10 @@ pub struct Alias {
 }
 
 pub fn parse() -> Result<Config, Error> {
-    Ok(match env::var_os(CONFIG_PATH) {
-        Some(path) => parse_file(path).context("failed to read config file")?,
-        None => Config::default()?,
-    })
+    match env::var_os(CONFIG_PATH) {
+        Some(path) => parse_file(path),
+        None => Config::default(),
+    }
 }
 
 fn parse_file(path: impl AsRef<Path> + Into<PathBuf>) -> Result<Config, Error> {
