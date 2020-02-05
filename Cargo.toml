@@ -14,3 +14,4 @@ name = "mgit"
 path = "src/main.rs"
 
 [dependencies]
+argh = "0.1.3"
