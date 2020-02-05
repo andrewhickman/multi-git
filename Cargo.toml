@@ -1,0 +1,16 @@
+[package]
+name = "multi-git"
+description = "multi-git."
+version = "0.0.0"
+authors = ["Andrew Hickman <andrew.hickman1@sky.com>"]
+repository = "https://github.com/andrewhickman/multi-git"
+documentation = "https://docs.rs/multi-git"
+license = "MIT/Apache-2.0"
+readme = "README.md"
+edition = "2018"
+
+[[bin]]
+name = "mgit"
+path = "src/main.rs"
+
+[dependencies]
