@@ -5,6 +5,7 @@ mod edit;
 mod logger;
 mod pull;
 mod status;
+mod walk;
 
 use std::process;
 
@@ -28,7 +29,9 @@ fn run(args: cli::Args) -> Result<(), Error> {
     let config = config::parse().context("failed to get config")?;
     log::trace!("{:?}", config);
 
-    let mut stdout = StandardStream::stdout(args.color_choice(atty::Stream::Stdout));
+    let stdout = StandardStream::stdout(args.color_choice(atty::Stream::Stdout));
+    let mut stdout = stdout.lock();
+
     match args.command {
         cli::Command::Edit(edit_args) => edit::run(&mut stdout, edit_args, &config),
         cli::Command::Status(status_args) => status::run(&mut stdout, status_args, &config),

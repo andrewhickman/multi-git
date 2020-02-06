@@ -3,12 +3,15 @@ use termcolor::WriteColor;
 
 use crate::cli;
 use crate::config::Config;
+use crate::walk::walk_repos;
 
 pub fn run(
     stdout: &mut impl WriteColor,
     _args: cli::StatusArgs,
-    _config: &Config,
+    config: &Config,
 ) -> Result<(), Error> {
-    write!(stdout, "status!")?;
+    walk_repos(config, |entry, _| {
+        writeln!(stdout, "{} is a repo!", entry.path().display()).unwrap();
+    });
     Ok(())
 }
