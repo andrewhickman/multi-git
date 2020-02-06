@@ -26,7 +26,7 @@ impl Options {
         } else if self.debug {
             log::LevelFilter::Debug
         } else {
-            log::LevelFilter::Info
+            log::LevelFilter::Warn
         }
     }
 }

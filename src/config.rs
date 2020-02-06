@@ -1,24 +1,19 @@
+use std::collections::HashMap;
+use std::env;
 use std::path::{Path, PathBuf};
-use std::{env, fmt};
 
 use failure::{Error, ResultExt};
-use serde::{de, Deserialize, Deserializer};
+use serde::Deserialize;
 
 pub const CONFIG_PATH: &str = "MULTIGIT_CONFIG_PATH";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    #[serde(deserialize_with = "deserialize_path")]
-    root: PathBuf,
-    #[serde(default, rename = "alias")]
-    aliases: Vec<Alias>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Alias {
-    name: String,
-    path: String,
+    pub root: PathBuf,
+    pub editor: Option<String>,
+    #[serde(default)]
+    pub aliases: HashMap<String, PathBuf>,
 }
 
 pub fn parse() -> Result<Config, Error> {
@@ -41,31 +36,8 @@ impl Config {
     fn default() -> Result<Config, Error> {
         Ok(Config {
             root: env::current_dir().context("failed to get current directory")?,
-            aliases: Vec::new(),
+            editor: None,
+            aliases: HashMap::new(),
         })
     }
-}
-
-fn deserialize_path<'de, D>(deserializer: D) -> Result<PathBuf, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct PathVisitor;
-
-    impl<'de> de::Visitor<'de> for PathVisitor {
-        type Value = PathBuf;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            write!(formatter, "a path")
-        }
-
-        fn visit_string<E>(self, s: String) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            Ok(s.into())
-        }
-    }
-
-    deserializer.deserialize_string(PathVisitor)
 }

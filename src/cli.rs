@@ -29,24 +29,30 @@ pub struct Args {
 #[derive(Debug, FromArgs)]
 #[argh(subcommand)]
 pub enum Command {
+    Edit(EditArgs),
     Status(StatusArgs),
     Pull(PullArgs),
+}
+
+#[derive(Debug, FromArgs)]
+#[argh(subcommand, name = "edit", description = "Open a repo in an editor")]
+pub struct EditArgs {
+    #[argh(positional, description = "the path or alias of the repo to edit")]
+    pub name: String,
+    #[argh(option, description = "override the editor program")]
+    pub editor: Option<String>,
 }
 
 #[derive(Debug, FromArgs)]
 #[argh(
     subcommand,
     name = "status",
-    description = "show the status of your repos"
+    description = "Show the status of your repos"
 )]
 pub struct StatusArgs {}
 
 #[derive(Debug, FromArgs)]
-#[argh(
-    subcommand,
-    name = "pull",
-    description = "pull latest changes in your repos"
-)]
+#[argh(subcommand, name = "pull", description = "Pull changes in your repos")]
 pub struct PullArgs {}
 
 impl Args {
