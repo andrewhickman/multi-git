@@ -8,10 +8,11 @@ use crate::{alias, cli};
 
 pub fn run(
     _stdout: &mut impl WriteColor,
-    args: cli::EditArgs,
+    args: &cli::Args,
+    edit_args: &cli::EditArgs,
     config: &Config,
 ) -> Result<(), Error> {
-    let editor = match (&args.editor, &config.editor) {
+    let editor = match (&edit_args.editor, &config.editor) {
         (Some(arg), _) => arg,
         (None, Some(config)) => config,
         (None, None) => {
@@ -19,7 +20,7 @@ pub fn run(
         }
     };
 
-    let path = alias::resolve(&args.name, config)?;
+    let path = alias::resolve(&edit_args.name, args, config)?;
 
     let mut command = shell();
     command.arg(editor).arg(path);

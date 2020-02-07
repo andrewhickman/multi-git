@@ -18,9 +18,11 @@ pub struct Args {
     pub debug: bool,
     #[argh(switch, description = "enable trace logging")]
     pub trace: bool,
+    #[argh(switch, short = 'A', description = "disable aliases")]
+    pub no_alias: bool,
     #[argh(
         option,
-        description = "controls when to use colored output (options: always, ansi, auto, never)",
+        description = "control when to use colored output (options: always, ansi, auto, never)",
         from_str_fn(parse_color_choice)
     )]
     pub color: Option<ColorChoice>,

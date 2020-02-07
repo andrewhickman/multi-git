@@ -6,7 +6,8 @@ use crate::config::Config;
 
 pub fn run(
     stdout: &mut impl WriteColor,
-    _args: cli::PullArgs,
+    _args: &cli::Args,
+    _pull_args: &cli::PullArgs,
     _config: &Config,
 ) -> Result<(), Error> {
     write!(stdout, "pull!")?;

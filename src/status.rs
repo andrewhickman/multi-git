@@ -11,12 +11,13 @@ use crate::walk::walk_repos;
 
 pub fn run(
     stdout: &mut impl WriteColor,
-    args: cli::StatusArgs,
+    _args: &cli::Args,
+    status_args: &cli::StatusArgs,
     config: &Config,
 ) -> Result<(), Error> {
     walk_repos(config, |path, repo| {
         log::debug!("getting status for repo at {}", path.display());
-        if let Err(err) = print_repo(stdout, config, &args, path, repo) {
+        if let Err(err) = print_repo(stdout, config, &status_args, path, repo) {
             log::error!(
                 "error getting status for repo at {}\ncaused by: {}",
                 path.display(),
@@ -32,7 +33,7 @@ const PATH_PADDING: usize = 40;
 fn print_repo(
     stdout: &mut impl WriteColor,
     config: &Config,
-    _args: &cli::StatusArgs,
+    _status_args: &cli::StatusArgs,
     path: &Path,
     repo: &Repository,
 ) -> Result<(), Error> {

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 
@@ -13,7 +13,7 @@ pub struct Config {
     pub root: PathBuf,
     pub editor: Option<String>,
     #[serde(default)]
-    pub aliases: HashMap<String, PathBuf>,
+    pub aliases: BTreeMap<String, PathBuf>,
 }
 
 pub fn parse() -> Result<Config, Error> {
@@ -37,7 +37,7 @@ impl Config {
         Ok(Config {
             root: env::current_dir().context("failed to get current directory")?,
             editor: None,
-            aliases: HashMap::new(),
+            aliases: BTreeMap::new(),
         })
     }
 }
