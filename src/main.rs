@@ -18,7 +18,7 @@ fn main() {
 
     let args = cli::parse_args();
     logger::init(&args.logger_options());
-    log::trace!("{:?}", args);
+    log::trace!("{:#?}", args);
 
     if let Err(err) = run(args) {
         log::error!("{}", fmt_error(&err.compat()));
@@ -28,7 +28,7 @@ fn main() {
 
 fn run(args: cli::Args) -> Result<(), failure::Error> {
     let config = config::parse().context("failed to get config")?;
-    log::trace!("{:?}", config);
+    log::trace!("{:#?}", config);
 
     let stdout = StandardStream::stdout(args.color_choice(atty::Stream::Stdout));
     let mut stdout = stdout.lock();
