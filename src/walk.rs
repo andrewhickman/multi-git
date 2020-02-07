@@ -1,11 +1,13 @@
+use std::path::Path;
+
 use git2::Repository;
-use walkdir::{DirEntry, WalkDir};
+use walkdir::WalkDir;
 
 use crate::config::Config;
 
 pub fn walk_repos<F>(config: &Config, mut visit: F)
 where
-    F: FnMut(&DirEntry, &mut Repository),
+    F: FnMut(&Path, &mut Repository),
 {
     let mut iter = WalkDir::new(&config.root).into_iter();
     loop {
@@ -24,7 +26,7 @@ where
 
         match Repository::open(entry.path()) {
             Ok(mut repo) => {
-                visit(&entry, &mut repo);
+                visit(entry.path(), &mut repo);
                 iter.skip_current_dir();
             }
             Err(err)

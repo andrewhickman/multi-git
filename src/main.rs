@@ -7,9 +7,10 @@ mod pull;
 mod status;
 mod walk;
 
+use std::error::Error;
 use std::process;
 
-use failure::{Error, ResultExt};
+use failure::ResultExt;
 use termcolor::StandardStream;
 
 fn main() {
@@ -20,12 +21,12 @@ fn main() {
     log::trace!("{:?}", args);
 
     if let Err(err) = run(args) {
-        log::error!("{}", fmt_error(&err));
+        log::error!("{}", fmt_error(&err.compat()));
         process::exit(1);
     }
 }
 
-fn run(args: cli::Args) -> Result<(), Error> {
+fn run(args: cli::Args) -> Result<(), failure::Error> {
     let config = config::parse().context("failed to get config")?;
     log::trace!("{:?}", config);
 
@@ -39,10 +40,12 @@ fn run(args: cli::Args) -> Result<(), Error> {
     }
 }
 
-fn fmt_error(err: &Error) -> String {
+fn fmt_error(err: &impl Error) -> String {
     let mut pretty = err.to_string();
-    for cause in err.iter_causes() {
-        pretty.push_str(&format!("\ncaused by: {}", cause));
+    let mut source = err.source();
+    while let Some(err) = source {
+        pretty.push_str(&format!("\ncaused by: {}", err));
+        source = err.source();
     }
     pretty
 }

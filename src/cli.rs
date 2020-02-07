@@ -39,7 +39,7 @@ pub enum Command {
 pub struct EditArgs {
     #[argh(positional, description = "the path or alias of the repo to edit")]
     pub name: String,
-    #[argh(option, description = "override the editor program")]
+    #[argh(option, short = 'e', description = "override the editor program")]
     pub editor: Option<String>,
 }
 
