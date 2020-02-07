@@ -19,8 +19,6 @@ where
     D: Fn(&Path) + Sync,
     F: Fn(&Path, &mut Repository) + Sync,
 {
-    visit_dir(path);
-
     log::trace!("visiting entries in `{}`", path.display());
     let entries = match fs::read_dir(path) {
         Ok(entries) => entries,
@@ -73,6 +71,10 @@ where
                 }
             }
         }
+    }
+
+    if !repos.is_empty() {
+        visit_dir(path);
     }
 
     repos.into_par_iter().for_each(|(repo_path, mut repo)| {
