@@ -1,13 +1,13 @@
 use std::process::Command;
 
 use failure::{bail, Error, ResultExt};
-use termcolor::WriteColor;
+use termcolor::StandardStream;
 
 use crate::config::Config;
 use crate::{alias, cli};
 
 pub fn run(
-    _stdout: &mut impl WriteColor,
+    _stdout: &StandardStream,
     args: &cli::Args,
     edit_args: &cli::EditArgs,
     config: &Config,

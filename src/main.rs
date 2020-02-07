@@ -31,12 +31,11 @@ fn run(args: cli::Args) -> Result<(), failure::Error> {
     log::trace!("{:#?}", config);
 
     let stdout = StandardStream::stdout(args.color_choice(atty::Stream::Stdout));
-    let mut stdout = stdout.lock();
 
     match &args.command {
-        cli::Command::Edit(edit_args) => edit::run(&mut stdout, &args, edit_args, &config),
-        cli::Command::Status(status_args) => status::run(&mut stdout, &args, status_args, &config),
-        cli::Command::Pull(pull_args) => pull::run(&mut stdout, &args, pull_args, &config),
+        cli::Command::Edit(edit_args) => edit::run(&stdout, &args, edit_args, &config),
+        cli::Command::Status(status_args) => status::run(&stdout, &args, status_args, &config),
+        cli::Command::Pull(pull_args) => pull::run(&stdout, &args, pull_args, &config),
     }
 }
 

@@ -1,15 +1,16 @@
 use failure::Error;
-use termcolor::WriteColor;
+use std::io::Write;
+use termcolor::StandardStream;
 
 use crate::cli;
 use crate::config::Config;
 
 pub fn run(
-    stdout: &mut impl WriteColor,
+    stdout: &StandardStream,
     _args: &cli::Args,
     _pull_args: &cli::PullArgs,
     _config: &Config,
 ) -> Result<(), Error> {
-    write!(stdout, "pull!")?;
+    write!(stdout.lock(), "pull!")?;
     Ok(())
 }
