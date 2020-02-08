@@ -1,5 +1,5 @@
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use bstr::{BString, ByteSlice};
 use failure::Error;
@@ -18,23 +18,29 @@ pub fn run(
 ) -> Result<(), Error> {
     walk_repos(
         config,
-        |path| visit_dir(stdout, config, path),
-        |path, repo| visit_repo(stdout, config, status_args, path, repo),
+        |path, repos| visit_dir(stdout, path, repos),
+        |path, init, repo| visit_repo(stdout, status_args, path, init, repo),
     );
     Ok(())
 }
 
-fn visit_dir(stdout: &StandardStream, config: &Config, path: &Path) {
-    let relative_path = path.strip_prefix(&config.root).unwrap_or(path);
-
-    if !relative_path.as_os_str().is_empty() {
-        if let Err(err) = print_dir(&mut stdout.lock(), relative_path) {
-            log::error!("failed to write to stdout\ncaused by: {}", err);
+fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Repository)]) -> usize {
+    if !repos.is_empty() {
+        if !path.as_os_str().is_empty() {
+            if let Err(err) = print_dir(&mut stdout.lock(), path) {
+                log::error!("failed to write to stdout\ncaused by: {}", err);
+            }
         }
     }
+
+    repos
+        .iter()
+        .map(|(path, _)| path.as_os_str().len())
+        .max()
+        .unwrap_or(0)
 }
 
-fn print_dir(stdout: &mut impl WriteColor, relative_path: &Path) -> io::Result<()> {
+fn print_dir(stdout: &mut impl WriteColor, path: &Path) -> io::Result<()> {
     stdout
         .set_color(
             &ColorSpec::new()
@@ -42,35 +48,32 @@ fn print_dir(stdout: &mut impl WriteColor, relative_path: &Path) -> io::Result<(
                 .set_underline(true),
         )
         .ok();
-    write!(stdout, "{}", relative_path.display())?;
+    write!(stdout, "{}", path.display())?;
     stdout.reset().ok();
     writeln!(stdout)
 }
 
-const REPO_PATH_PADDING: usize = 40;
-
 fn visit_repo(
     stdout: &StandardStream,
-    config: &Config,
     _status_args: &cli::StatusArgs,
     path: &Path,
+    &repo_path_padding: &usize,
     repo: &mut Repository,
 ) {
     log::debug!("getting status for repo at `{}`", path.display());
-    let relative_path = path.strip_prefix(&config.root).unwrap_or(path);
 
     let status = match get_status(repo) {
         Ok(status) => status,
         Err(err) => {
             return log::error!(
                 "failed to get repo status for `{}`\ncaused by: {}",
-                relative_path.display(),
+                path.display(),
                 err.message()
             )
         }
     };
 
-    if let Err(err) = print_status(&mut stdout.lock(), relative_path, &status) {
+    if let Err(err) = print_status(&mut stdout.lock(), path, repo_path_padding, &status) {
         log::error!("failed to write to stdout\ncaused by: {}", err);
     }
 }
@@ -112,15 +115,11 @@ fn get_status<'a>(repo: &'a mut Repository) -> Result<Status, git2::Error> {
 
 fn print_status(
     stdout: &mut impl WriteColor,
-    relative_path: &Path,
+    path: &Path,
+    repo_path_padding: usize,
     status: &Status,
 ) -> io::Result<()> {
-    write!(
-        stdout,
-        "{:<pad$}",
-        relative_path.display(),
-        pad = REPO_PATH_PADDING
-    )?;
+    write!(stdout, "{:<pad$} ", path.display(), pad = repo_path_padding,)?;
 
     stdout
         .set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))

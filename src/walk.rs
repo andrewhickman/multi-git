@@ -1,23 +1,25 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use git2::Repository;
 use rayon::prelude::*;
 
 use crate::config::Config;
 
-pub fn walk_repos<D, F>(config: &Config, visit_dir: D, visit_repo: F)
+pub fn walk_repos<I, D, F>(config: &Config, mut visit_dir: D, visit_repo: F)
 where
-    D: Fn(&Path) + Sync,
-    F: Fn(&Path, &mut Repository) + Sync,
+    I: Sync,
+    D: FnMut(&Path, &[(PathBuf, Repository)]) -> I + Sync,
+    F: Fn(&Path, &I, &mut Repository) + Sync,
 {
-    walk_repos_inner(&config.root, &visit_dir, &visit_repo)
+    walk_repos_inner(config, &config.root, &mut visit_dir, &visit_repo)
 }
 
-fn walk_repos_inner<D, F>(path: &Path, visit_dir: &D, visit_repo: &F)
+fn walk_repos_inner<I, D, F>(config: &Config, path: &Path, visit_dir: &mut D, visit_repo: &F)
 where
-    D: Fn(&Path) + Sync,
-    F: Fn(&Path, &mut Repository) + Sync,
+    I: Sync,
+    D: FnMut(&Path, &[(PathBuf, Repository)]) -> I + Sync,
+    F: Fn(&Path, &I, &mut Repository) + Sync,
 {
     log::trace!("visiting entries in `{}`", path.display());
     let entries = match fs::read_dir(path) {
@@ -47,7 +49,7 @@ where
                     Ok(file_type) if file_type.is_dir() => match Repository::open(&sub_path) {
                         Ok(repo) => {
                             log::trace!("visiting repo at `{}`", sub_path.display());
-                            repos.push((sub_path, repo));
+                            repos.push((relative_path(config, &sub_path).to_owned(), repo));
                         }
                         Err(err)
                             if err.class() == git2::ErrorClass::Repository
@@ -73,15 +75,16 @@ where
         }
     }
 
-    if !repos.is_empty() {
-        visit_dir(path);
-    }
-
+    let init = visit_dir(relative_path(config, path), &repos);
     repos.into_par_iter().for_each(|(repo_path, mut repo)| {
-        visit_repo(&repo_path, &mut repo);
+        visit_repo(&repo_path, &init, &mut repo);
     });
 
     for subdirectory in subdirectories {
-        walk_repos_inner(&subdirectory, visit_dir, visit_repo);
+        walk_repos_inner(config, &subdirectory, visit_dir, visit_repo);
     }
+}
+
+fn relative_path<'a>(config: &Config, path: &'a Path) -> &'a Path {
+    path.strip_prefix(&config.root).unwrap_or(path)
 }
