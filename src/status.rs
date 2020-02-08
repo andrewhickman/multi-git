@@ -40,15 +40,14 @@ fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Repository
 }
 
 fn print_dir(stdout: &mut impl WriteColor, path: &Path) -> io::Result<()> {
-    stdout
-        .set_color(
-            &ColorSpec::new()
-                .set_fg(Some(Color::Yellow))
-                .set_underline(true),
-        )
-        .ok();
+    stdout.set_color(
+        &ColorSpec::new()
+            .set_fg(Some(Color::Yellow))
+            .set_bold(true)
+            .set_underline(true),
+    )?;
     write!(stdout, "{}", path.display())?;
-    stdout.reset().ok();
+    stdout.reset()?;
     writeln!(stdout)
 }
 
@@ -85,15 +84,36 @@ fn print_status(
 ) -> io::Result<()> {
     write!(stdout, "{:<pad$} ", path.display(), pad = repo_path_padding,)?;
 
-    stdout
-        .set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))
-        .ok();
-    if status.head.detached {
-        write!(stdout, "({})", status.head.name)?;
-    } else {
-        write!(stdout, "{}", status.head.name)?;
+    match status.upstream {
+        git_util::UpstreamStatus::None => write!(stdout, "        ")?,
+        git_util::UpstreamStatus::Upstream {
+            ahead: 0,
+            behind: 0,
+        } => {
+            stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+            write!(stdout, "      ≡ ")?;
+            stdout.reset()?;
+        }
+        git_util::UpstreamStatus::Upstream { ahead, behind: 0 } => {
+            stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Green)))?;
+            write!(stdout, "    {:>2}↑ ", ahead)?;
+            stdout.reset()?;
+        }
+        git_util::UpstreamStatus::Upstream { ahead: 0, behind } => {
+            stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Red)))?;
+            write!(stdout, "    {:>2}↓ ", behind)?;
+            stdout.reset()?;
+        }
+        git_util::UpstreamStatus::Upstream { ahead, behind } => {
+            stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+            write!(stdout, "{:2}↑ {:2}↓ ", ahead, behind)?;
+            stdout.reset()?;
+        }
     }
-    stdout.reset().ok();
+
+    stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+    write!(stdout, "{}", status.head)?;
+    stdout.reset()?;
 
     writeln!(stdout)
 }
