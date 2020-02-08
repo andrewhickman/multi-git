@@ -83,13 +83,24 @@ struct Status {
 fn get_status<'a>(repo: &'a mut Repository) -> Result<Status, git2::Error> {
     let head = repo.head()?;
     let detached = repo.head_detached()?;
+
     let pretty_head = if detached {
         let object = head.peel(git2::ObjectType::Any)?;
-        object
-            .short_id()?
-            .as_str()
-            .expect("oid is invalid utf-8")
-            .into()
+
+        let describe_result = object.describe(
+            &git2::DescribeOptions::new()
+                .describe_tags()
+                .max_candidates_tags(1),
+        );
+        if let Ok(description) = describe_result {
+            description.format(None)?.into()
+        } else {
+            object
+                .short_id()?
+                .as_str()
+                .expect("oid is invalid utf-8")
+                .into()
+        }
     } else {
         head.shorthand_bytes().as_bstr().to_owned()
     };
