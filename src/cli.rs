@@ -51,7 +51,13 @@ pub struct EditArgs {
     name = "status",
     description = "Show the status of your repos"
 )]
-pub struct StatusArgs {}
+pub struct StatusArgs {
+    #[argh(
+        positional,
+        description = "the path or alias of the repo to get status for"
+    )]
+    pub name: Option<String>,
+}
 
 #[derive(Debug, FromArgs)]
 #[argh(subcommand, name = "pull", description = "Pull changes in your repos")]

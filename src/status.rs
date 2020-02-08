@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -7,18 +8,24 @@ use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 
 use crate::config::Config;
 use crate::walk::walk_repos;
-use crate::{cli, git_util};
+use crate::{alias, cli, git_util};
 
 pub fn run(
     stdout: &StandardStream,
-    _args: &cli::Args,
+    args: &cli::Args,
     status_args: &cli::StatusArgs,
     config: &Config,
 ) -> Result<(), Error> {
+    let root = if let Some(name) = &status_args.name {
+        Cow::Owned(alias::resolve(name, args, config)?)
+    } else {
+        Cow::Borrowed(&config.root)
+    };
+
     walk_repos(
-        config,
+        &root,
         |path, repos| visit_dir(stdout, path, repos),
-        |path, init, repo| visit_repo(stdout, status_args, path, init, repo),
+        |path, init, repo| visit_repo(stdout, path, init, repo),
     );
     Ok(())
 }
@@ -53,7 +60,6 @@ fn print_dir(stdout: &mut impl WriteColor, path: &Path) -> io::Result<()> {
 
 fn visit_repo(
     stdout: &StandardStream,
-    _status_args: &cli::StatusArgs,
     path: &Path,
     &repo_path_padding: &usize,
     repo: &mut Repository,
@@ -84,32 +90,25 @@ fn print_status(
 ) -> io::Result<()> {
     write!(stdout, "{:<pad$} ", path.display(), pad = repo_path_padding,)?;
 
-    match status.upstream {
-        git_util::UpstreamStatus::None => write!(stdout, "        ")?,
+    let (text, color) = match status.upstream {
+        git_util::UpstreamStatus::None => (String::new(), None),
         git_util::UpstreamStatus::Upstream {
             ahead: 0,
             behind: 0,
-        } => {
-            stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))?;
-            write!(stdout, "      ≡ ")?;
-            stdout.reset()?;
-        }
+        } => ("≡".to_owned(), Some(Color::Cyan)),
         git_util::UpstreamStatus::Upstream { ahead, behind: 0 } => {
-            stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Green)))?;
-            write!(stdout, "    {:>2}↑ ", ahead)?;
-            stdout.reset()?;
+            (format!("{}↑", ahead), Some(Color::Green))
         }
         git_util::UpstreamStatus::Upstream { ahead: 0, behind } => {
-            stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Red)))?;
-            write!(stdout, "    {:>2}↓ ", behind)?;
-            stdout.reset()?;
+            (format!("{}↓", behind), Some(Color::Red))
         }
         git_util::UpstreamStatus::Upstream { ahead, behind } => {
-            stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Yellow)))?;
-            write!(stdout, "{:2}↑ {:2}↓ ", ahead, behind)?;
-            stdout.reset()?;
+            (format!("{}↑ {}↓", ahead, behind), Some(Color::Yellow))
         }
-    }
+    };
+    stdout.set_color(&ColorSpec::new().set_fg(color))?;
+    write!(stdout, "{:>8} ", text)?;
+    stdout.reset()?;
 
     if status.working_tree.working_changed {
         stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;

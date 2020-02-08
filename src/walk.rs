@@ -4,18 +4,20 @@ use std::path::{Path, PathBuf};
 use git2::Repository;
 use rayon::prelude::*;
 
-use crate::config::Config;
-
-pub fn walk_repos<I, D, F>(config: &Config, mut visit_dir: D, visit_repo: F)
+pub fn walk_repos<I, D, F>(root: &Path, mut visit_dir: D, visit_repo: F)
 where
-    I: Sync,
+    I: Sync + Default,
     D: FnMut(&Path, &[(PathBuf, Repository)]) -> I + Sync,
     F: Fn(&Path, &I, &mut Repository) + Sync,
 {
-    walk_repos_inner(config, &config.root, &mut visit_dir, &visit_repo)
+    match try_open_repo(root) {
+        Ok(Some(mut repo)) => visit_repo(root, &Default::default(), &mut repo),
+        Ok(None) => walk_repos_inner(root, root, &mut visit_dir, &visit_repo),
+        Err(_) => (),
+    }
 }
 
-fn walk_repos_inner<I, D, F>(config: &Config, path: &Path, visit_dir: &mut D, visit_repo: &F)
+fn walk_repos_inner<I, D, F>(root: &Path, path: &Path, visit_dir: &mut D, visit_repo: &F)
 where
     I: Sync,
     D: FnMut(&Path, &[(PathBuf, Repository)]) -> I + Sync,
@@ -46,23 +48,15 @@ where
             Ok(entry) => {
                 let sub_path = entry.path();
                 match entry.file_type() {
-                    Ok(file_type) if file_type.is_dir() => match Repository::open(&sub_path) {
-                        Ok(repo) => {
-                            log::trace!("visiting repo at `{}`", sub_path.display());
-                            repos.push((relative_path(config, &sub_path).to_owned(), repo));
+                    Ok(file_type) if file_type.is_dir() => match try_open_repo(&sub_path) {
+                        Ok(Some(repo)) => {
+                            repos.push((relative_path(root, &sub_path).to_owned(), repo));
                         }
-                        Err(err)
-                            if err.class() == git2::ErrorClass::Repository
-                                && err.code() == git2::ErrorCode::NotFound =>
-                        {
+                        Ok(None) => {
                             log::trace!("visiting subdirectory at `{}`", sub_path.display());
                             subdirectories.push(sub_path);
                         }
-                        Err(err) => log::error!(
-                            "failed to open repo at `{}`\ncaused by: {}",
-                            sub_path.display(),
-                            err.message()
-                        ),
+                        Err(_) => (),
                     },
                     Err(err) => log::error!(
                         "failed to get metadata for `{}`\ncaused by: {}",
@@ -75,16 +69,34 @@ where
         }
     }
 
-    let init = visit_dir(relative_path(config, path), &repos);
+    let init = visit_dir(relative_path(root, path), &repos);
     repos.into_par_iter().for_each(|(repo_path, mut repo)| {
         visit_repo(&repo_path, &init, &mut repo);
     });
 
     for subdirectory in subdirectories {
-        walk_repos_inner(config, &subdirectory, visit_dir, visit_repo);
+        walk_repos_inner(root, &subdirectory, visit_dir, visit_repo);
     }
 }
 
-fn relative_path<'a>(config: &Config, path: &'a Path) -> &'a Path {
-    path.strip_prefix(&config.root).unwrap_or(path)
+fn try_open_repo(path: &Path) -> Result<Option<Repository>, git2::Error> {
+    match Repository::open(path) {
+        Ok(repo) => {
+            log::debug!("opened repo at `{}`", path.display());
+            Ok(Some(repo))
+        }
+        Err(err) if err.code() == git2::ErrorCode::NotFound => Ok(None),
+        Err(err) => {
+            log::error!(
+                "failed to open repo at `{}`\ncaused by: {}",
+                path.display(),
+                err.message()
+            );
+            Err(err)
+        }
+    }
+}
+
+fn relative_path<'a>(root: &Path, path: &'a Path) -> &'a Path {
+    path.strip_prefix(root).unwrap_or(path)
 }
