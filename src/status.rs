@@ -80,7 +80,7 @@ fn print_status(
     stdout: &mut impl WriteColor,
     path: &Path,
     repo_path_padding: usize,
-    status: &git_util::Status,
+    status: &git_util::RepoStatus,
 ) -> io::Result<()> {
     write!(stdout, "{:<pad$} ", path.display(), pad = repo_path_padding,)?;
 
@@ -109,6 +109,18 @@ fn print_status(
             write!(stdout, "{:2}↑ {:2}↓ ", ahead, behind)?;
             stdout.reset()?;
         }
+    }
+
+    if status.working_tree.working_changed {
+        stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))?;
+        write!(stdout, "! ")?;
+        stdout.reset()?;
+    } else if status.working_tree.index_changed {
+        stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+        write!(stdout, "~ ")?;
+        stdout.reset()?;
+    } else {
+        write!(stdout, "  ")?;
     }
 
     stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))?;

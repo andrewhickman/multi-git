@@ -1,11 +1,12 @@
 use std::fmt;
 
 use bstr::{BString, ByteSlice};
-use git2::{Branch, ObjectType, Oid, Reference, Repository};
+use git2::{Branch, ObjectType, Oid, Reference, Repository, Status, StatusOptions};
 
-pub struct Status<'repo> {
+pub struct RepoStatus<'repo> {
     pub head: HeadStatus<'repo>,
     pub upstream: UpstreamStatus,
+    pub working_tree: WorkingTreeStatus,
 }
 
 pub enum HeadStatus<'repo> {
@@ -26,11 +27,21 @@ pub enum UpstreamStatus {
     Upstream { ahead: usize, behind: usize },
 }
 
-pub fn get_status<'repo>(repo: &'repo mut Repository) -> Result<Status<'repo>, git2::Error> {
+pub struct WorkingTreeStatus {
+    pub working_changed: bool,
+    pub index_changed: bool,
+}
+
+pub fn get_status<'repo>(repo: &'repo mut Repository) -> Result<RepoStatus<'repo>, git2::Error> {
     let head = get_head_status(repo)?;
     let upstream = get_upstream_status(repo, &head)?;
+    let working_tree = get_working_tree_status(repo)?;
 
-    Ok(Status { head, upstream })
+    Ok(RepoStatus {
+        head,
+        upstream,
+        working_tree,
+    })
 }
 
 fn get_head_status<'repo>(repo: &'repo Repository) -> Result<HeadStatus<'repo>, git2::Error> {
@@ -81,6 +92,35 @@ fn get_upstream_status(
     let (ahead, behind) = repo.graph_ahead_behind(local_oid, upstream_oid)?;
 
     Ok(UpstreamStatus::Upstream { ahead, behind })
+}
+
+fn get_working_tree_status(repo: &Repository) -> Result<WorkingTreeStatus, git2::Error> {
+    let statuses = repo.statuses(Some(&mut StatusOptions::new().exclude_submodules(true)))?;
+
+    let mut result = WorkingTreeStatus {
+        working_changed: false,
+        index_changed: false,
+    };
+
+    let working_changed_mask = Status::WT_NEW
+        | Status::WT_MODIFIED
+        | Status::WT_DELETED
+        | Status::WT_RENAMED
+        | Status::WT_TYPECHANGE;
+    let index_changed_mask = Status::INDEX_NEW
+        | Status::INDEX_MODIFIED
+        | Status::INDEX_DELETED
+        | Status::INDEX_RENAMED
+        | Status::INDEX_TYPECHANGE;
+
+    for entry in statuses.iter() {
+        let status = entry.status();
+
+        result.working_changed |= status.intersects(working_changed_mask);
+        result.index_changed |= status.intersects(index_changed_mask);
+    }
+
+    Ok(result)
 }
 
 impl<'repo> fmt::Display for HeadStatus<'repo> {
