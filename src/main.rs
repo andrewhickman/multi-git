@@ -2,6 +2,7 @@ mod alias;
 mod cli;
 mod config;
 mod edit;
+mod git_util;
 mod logger;
 mod pull;
 mod status;

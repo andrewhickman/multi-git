@@ -1,14 +1,13 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use bstr::{BString, ByteSlice};
 use failure::Error;
 use git2::Repository;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 
-use crate::cli;
 use crate::config::Config;
 use crate::walk::walk_repos;
+use crate::{cli, git_util};
 
 pub fn run(
     stdout: &StandardStream,
@@ -62,7 +61,7 @@ fn visit_repo(
 ) {
     log::debug!("getting status for repo at `{}`", path.display());
 
-    let status = match get_status(repo) {
+    let status = match git_util::get_status(repo) {
         Ok(status) => status,
         Err(err) => {
             return log::error!(
@@ -78,56 +77,21 @@ fn visit_repo(
     }
 }
 
-struct Status {
-    head: BString,
-    detached: bool,
-}
-
-fn get_status<'a>(repo: &'a mut Repository) -> Result<Status, git2::Error> {
-    let head = repo.head()?;
-    let detached = repo.head_detached()?;
-
-    let pretty_head = if detached {
-        let object = head.peel(git2::ObjectType::Any)?;
-
-        let describe_result = object.describe(
-            &git2::DescribeOptions::new()
-                .describe_tags()
-                .max_candidates_tags(1),
-        );
-        if let Ok(description) = describe_result {
-            description.format(None)?.into()
-        } else {
-            object
-                .short_id()?
-                .as_str()
-                .expect("oid is invalid utf-8")
-                .into()
-        }
-    } else {
-        head.shorthand_bytes().as_bstr().to_owned()
-    };
-    Ok(Status {
-        head: pretty_head,
-        detached,
-    })
-}
-
 fn print_status(
     stdout: &mut impl WriteColor,
     path: &Path,
     repo_path_padding: usize,
-    status: &Status,
+    status: &git_util::Status,
 ) -> io::Result<()> {
     write!(stdout, "{:<pad$} ", path.display(), pad = repo_path_padding,)?;
 
     stdout
         .set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))
         .ok();
-    if status.detached {
-        write!(stdout, "({})", status.head)?;
+    if status.head.detached {
+        write!(stdout, "({})", status.head.name)?;
     } else {
-        write!(stdout, "{}", status.head)?;
+        write!(stdout, "{}", status.head.name)?;
     }
     stdout.reset().ok();
 
