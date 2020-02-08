@@ -2,13 +2,13 @@ mod alias;
 mod cli;
 mod config;
 mod edit;
-mod git_util;
+mod git_utils;
 mod logger;
+mod print_utils;
 mod pull;
 mod status;
 mod walk;
 
-use std::error::Error;
 use std::process;
 
 use failure::ResultExt;
@@ -22,7 +22,7 @@ fn main() {
     log::trace!("{:#?}", args);
 
     if let Err(err) = run(args) {
-        log::error!("{}", fmt_error(&err.compat()));
+        log::error!("{}", fmt_error(&err));
         process::exit(1);
     }
 }
@@ -40,12 +40,10 @@ fn run(args: cli::Args) -> Result<(), failure::Error> {
     }
 }
 
-fn fmt_error(err: &impl Error) -> String {
+fn fmt_error(err: &failure::Error) -> String {
     let mut pretty = err.to_string();
-    let mut source = err.source();
-    while let Some(err) = source {
-        pretty.push_str(&format!("\ncaused by: {}", err));
-        source = err.source();
+    for cause in err.iter_causes() {
+        pretty.push_str(&format!("\ncaused by: {}", cause));
     }
     pretty
 }

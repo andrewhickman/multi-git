@@ -4,21 +4,32 @@ use std::path::{Path, PathBuf};
 use git2::Repository;
 use rayon::prelude::*;
 
-pub fn walk_repos<I, D, F>(root: &Path, mut visit_dir: D, visit_repo: F)
+use crate::config::Config;
+
+pub fn walk_repos<I, D, F>(config: &Config, root: &Path, mut visit_dir: D, visit_repo: F)
 where
     I: Sync + Default,
     D: FnMut(&Path, &[(PathBuf, Repository)]) -> I + Sync,
     F: Fn(&Path, &I, &mut Repository) + Sync,
 {
     match try_open_repo(root) {
-        Ok(Some(mut repo)) => visit_repo(root, &Default::default(), &mut repo),
-        Ok(None) => walk_repos_inner(root, root, &mut visit_dir, &visit_repo),
+        Ok(Some(mut repo)) => visit_repo(
+            config.get_relative_path(root),
+            &Default::default(),
+            &mut repo,
+        ),
+        Ok(None) => walk_repos_inner(config, root, root, &mut visit_dir, &visit_repo),
         Err(_) => (),
     }
 }
 
-fn walk_repos_inner<I, D, F>(root: &Path, path: &Path, visit_dir: &mut D, visit_repo: &F)
-where
+fn walk_repos_inner<I, D, F>(
+    config: &Config,
+    root: &Path,
+    path: &Path,
+    visit_dir: &mut D,
+    visit_repo: &F,
+) where
     I: Sync,
     D: FnMut(&Path, &[(PathBuf, Repository)]) -> I + Sync,
     F: Fn(&Path, &I, &mut Repository) + Sync,
@@ -50,7 +61,7 @@ where
                 match entry.file_type() {
                     Ok(file_type) if file_type.is_dir() => match try_open_repo(&sub_path) {
                         Ok(Some(repo)) => {
-                            repos.push((relative_path(root, &sub_path).to_owned(), repo));
+                            repos.push((config.get_relative_path(&sub_path).to_owned(), repo));
                         }
                         Ok(None) => {
                             log::trace!("visiting subdirectory at `{}`", sub_path.display());
@@ -69,13 +80,13 @@ where
         }
     }
 
-    let init = visit_dir(relative_path(root, path), &repos);
+    let init = visit_dir(config.get_relative_path(path), &repos);
     repos.into_par_iter().for_each(|(repo_path, mut repo)| {
         visit_repo(&repo_path, &init, &mut repo);
     });
 
     for subdirectory in subdirectories {
-        walk_repos_inner(root, &subdirectory, visit_dir, visit_repo);
+        walk_repos_inner(config, root, &subdirectory, visit_dir, visit_repo);
     }
 }
 
@@ -95,8 +106,4 @@ fn try_open_repo(path: &Path) -> Result<Option<Repository>, git2::Error> {
             Err(err)
         }
     }
-}
-
-fn relative_path<'a>(root: &Path, path: &'a Path) -> &'a Path {
-    path.strip_prefix(root).unwrap_or(path)
 }

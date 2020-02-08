@@ -12,7 +12,11 @@ pub fn run(
     edit_args: &cli::EditArgs,
     config: &Config,
 ) -> Result<(), Error> {
-    let editor = match (&edit_args.editor, &config.editor) {
+    let path = alias::resolve(&edit_args.name, args, config)?;
+
+    let settings = config.settings(config.get_relative_path(&path));
+
+    let editor = match (&edit_args.editor, &settings.editor) {
         (Some(arg), _) => arg,
         (None, Some(config)) => config,
         (None, None) => {
@@ -20,10 +24,8 @@ pub fn run(
         }
     };
 
-    let path = alias::resolve(&edit_args.name, args, config)?;
-
     let mut command = shell();
-    command.arg(editor).arg(path);
+    command.arg(editor).arg(&path).current_dir(&path);
     log::debug!("spawning command `${:?}`", command);
 
     let child = command.spawn().context("failed to launch editor")?;

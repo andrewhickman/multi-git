@@ -61,7 +61,10 @@ pub struct StatusArgs {
 
 #[derive(Debug, FromArgs)]
 #[argh(subcommand, name = "pull", description = "Pull changes in your repos")]
-pub struct PullArgs {}
+pub struct PullArgs {
+    #[argh(positional, description = "the path or alias of the repo to pull")]
+    pub name: Option<String>,
+}
 
 impl Args {
     pub fn logger_options(&self) -> logger::Options {
