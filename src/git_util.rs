@@ -23,20 +23,12 @@ fn get_head_status(repo: &mut Repository) -> Result<HeadStatus, git2::Error> {
             if detached {
                 let object = head.peel(ObjectType::Any)?;
 
-                let describe_result = object.describe(
+                let description = object.describe(
                     &git2::DescribeOptions::new()
-                        .describe_tags()
-                        .max_candidates_tags(1),
-                );
-                if let Ok(description) = describe_result {
-                    description.format(None)?.into()
-                } else {
-                    object
-                        .short_id()?
-                        .as_str()
-                        .expect("oid is invalid utf-8")
-                        .into()
-                }
+                        .describe_all()
+                        .show_commit_oid_as_fallback(true),
+                )?;
+                description.format(None)?.into()
             } else {
                 head.shorthand_bytes().as_bstr().to_owned()
             }
