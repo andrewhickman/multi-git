@@ -1,7 +1,7 @@
 use std::io;
 use std::path::Path;
 
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use failure::Error;
 use git2::Repository;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
@@ -75,17 +75,27 @@ fn visit_repo(
     }
 }
 
-struct Status<'a> {
-    head: git2::Reference<'a>,
-    head_detached: bool,
+struct Status {
+    head: BString,
+    detached: bool,
 }
 
-fn get_status<'a>(repo: &'a mut Repository) -> Result<Status<'a>, git2::Error> {
+fn get_status<'a>(repo: &'a mut Repository) -> Result<Status, git2::Error> {
     let head = repo.head()?;
-    let head_detached = repo.head_detached()?;
+    let detached = repo.head_detached()?;
+    let pretty_head = if detached {
+        let object = head.peel(git2::ObjectType::Any)?;
+        object
+            .short_id()?
+            .as_str()
+            .expect("oid is invalid utf-8")
+            .into()
+    } else {
+        head.shorthand_bytes().as_bstr().to_owned()
+    };
     Ok(Status {
-        head,
-        head_detached,
+        head: pretty_head,
+        detached,
     })
 }
 
@@ -101,15 +111,14 @@ fn print_status(
         pad = REPO_PATH_PADDING
     )?;
 
-    let head = if status.head_detached {
-        status.head.name_bytes().as_bstr()
-    } else {
-        status.head.shorthand_bytes().as_bstr()
-    };
     stdout
         .set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))
         .ok();
-    write!(stdout, "{}", head)?;
+    if status.detached {
+        write!(stdout, "({})", status.head)?;
+    } else {
+        write!(stdout, "{}", status.head)?;
+    }
     stdout.reset().ok();
 
     writeln!(stdout)

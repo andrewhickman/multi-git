@@ -4,7 +4,8 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 pub fn init(options: &Options) {
     log::set_boxed_logger(Box::new(Logger {
-        writer: StandardStream::stderr(options.color_choice),
+        stderr: StandardStream::stderr(options.color_choice),
+        stdout: StandardStream::stdout(ColorChoice::Never),
     }))
     .unwrap();
     log::set_max_level(options.level_filter());
@@ -32,7 +33,8 @@ impl Options {
 }
 
 struct Logger {
-    writer: StandardStream,
+    stderr: StandardStream,
+    stdout: StandardStream,
 }
 
 impl log::Log for Logger {
@@ -66,7 +68,9 @@ impl Logger {
             log::Level::Error => ("error:", Color::Red),
         };
 
-        let mut writer = self.writer.lock();
+        let _stdout_lock = self.stdout.lock();
+
+        let mut writer = self.stderr.lock();
         let mut lines = msg.as_ref().lines();
 
         if let Some(first) = lines.next() {
