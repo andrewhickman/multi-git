@@ -1,7 +1,10 @@
 use std::fmt;
 
 use bstr::{BStr, BString, ByteSlice};
-use git2::{Branch, ObjectType, Oid, Reference, Repository, Status, StatusOptions};
+use git2::{Branch, ObjectType, Repository, Status, StatusOptions};
+
+const HEAD_FILE: &str = "HEAD";
+const REFS_HEADS_FILE: &str = "refs/heads/";
 
 pub struct RepoStatus<'repo> {
     pub head: HeadStatus<'repo>,
@@ -9,17 +12,15 @@ pub struct RepoStatus<'repo> {
     pub working_tree: WorkingTreeStatus,
 }
 
-pub enum HeadStatus<'repo> {
-    Detached {
-        name: BString,
-        head: Reference<'repo>,
-    },
-    Branch {
-        name: BString,
-        branch: Branch<'repo>,
-        oid: Oid,
-    },
+pub struct HeadStatus<'repo> {
+    pub name: BString,
+    pub kind: HeadStatusKind<'repo>,
+}
+
+pub enum HeadStatusKind<'repo> {
     Unborn,
+    Detached,
+    Branch { branch: Branch<'repo> },
 }
 
 pub enum UpstreamStatus {
@@ -45,32 +46,45 @@ pub fn get_status<'repo>(repo: &'repo mut Repository) -> Result<RepoStatus<'repo
     })
 }
 
-fn get_head_status<'repo>(repo: &'repo Repository) -> Result<HeadStatus<'repo>, git2::Error> {
-    let detached = repo.head_detached()?;
-    match repo.head() {
-        Ok(head) => {
-            let object = head.peel(ObjectType::Any)?;
-            if detached {
-                let description = object.describe(
-                    &git2::DescribeOptions::new()
-                        .describe_all()
-                        .show_commit_oid_as_fallback(true),
-                )?;
-
-                Ok(HeadStatus::Detached {
-                    name: description.format(None)?.into(),
-                    head,
-                })
-            } else {
-                Ok(HeadStatus::Branch {
-                    name: head.shorthand_bytes().as_bstr().to_owned(),
-                    branch: Branch::wrap(head),
-                    oid: object.id(),
-                })
+fn get_head_status<'repo>(repo: &'repo Repository) -> Result<HeadStatus, git2::Error> {
+    let head = repo.find_reference("HEAD")?;
+    match head.symbolic_target_bytes() {
+        // HEAD points to a branch
+        Some(name) if name.starts_with(REFS_HEADS_FILE.as_bytes()) => {
+            let name = name[REFS_HEADS_FILE.len()..].as_bstr().to_owned();
+            match head.resolve() {
+                Ok(branch) => Ok(HeadStatus {
+                    name,
+                    kind: HeadStatusKind::Branch {
+                        branch: Branch::wrap(branch),
+                    },
+                }),
+                Err(err)
+                    if err.class() == git2::ErrorClass::Reference
+                        && err.code() == git2::ErrorCode::NotFound =>
+                {
+                    Ok(HeadStatus {
+                        name,
+                        kind: HeadStatusKind::Unborn,
+                    })
+                }
+                Err(err) => Err(err),
             }
         }
-        Err(err) if err.code() == git2::ErrorCode::UnbornBranch => Ok(HeadStatus::Unborn),
-        Err(err) => return Err(err),
+        // HEAD points to an oid (is detached)
+        _ => {
+            let object = head.peel(ObjectType::Any)?;
+            let description = object.describe(
+                &git2::DescribeOptions::new()
+                    .describe_tags()
+                    .show_commit_oid_as_fallback(true),
+            )?;
+            let name = description.format(None)?.into();
+            Ok(HeadStatus {
+                name,
+                kind: HeadStatusKind::Detached,
+            })
+        }
     }
 }
 
@@ -78,10 +92,11 @@ fn get_upstream_status(
     repo: &Repository,
     head: &HeadStatus,
 ) -> Result<UpstreamStatus, git2::Error> {
-    let (local_branch, local_oid) = match head {
-        HeadStatus::Branch { branch, oid, .. } => (branch, *oid),
+    let local_branch = match &head.kind {
+        HeadStatusKind::Branch { branch } => branch,
         _ => return Ok(UpstreamStatus::None),
     };
+    let local_oid = local_branch.get().peel(ObjectType::Any)?.id();
 
     let upstream_branch = match local_branch.upstream() {
         Ok(branch) => branch,
@@ -133,22 +148,11 @@ fn get_working_tree_status(repo: &Repository) -> Result<WorkingTreeStatus, git2:
     Ok(result)
 }
 
-impl<'repo> HeadStatus<'repo> {
-    pub fn name(&self) -> &BStr {
-        match self {
-            HeadStatus::Unborn => "master".as_bytes().as_bstr(),
-            HeadStatus::Detached { name, .. } => name.as_ref(),
-            HeadStatus::Branch { name, .. } => name.as_ref(),
-        }
-    }
-}
-
 impl<'repo> fmt::Display for HeadStatus<'repo> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            HeadStatus::Unborn => write!(f, "master"),
-            HeadStatus::Detached { name, .. } => write!(f, "({})", name),
-            HeadStatus::Branch { name, .. } => write!(f, "{}", name),
+        match self.kind {
+            HeadStatusKind::Unborn | HeadStatusKind::Branch { .. } => write!(f, "{}", self.name),
+            HeadStatusKind::Detached => write!(f, "({})", self.name),
         }
     }
 }

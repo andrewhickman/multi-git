@@ -119,7 +119,7 @@ fn print_status(
 
     let mut branch_color = ColorSpec::new();
     match settings.default_branch {
-        Some(name) if name.as_bytes().as_bstr() != status.head.name() => {
+        Some(name) if name.as_bytes().as_bstr() != status.head.name => {
             branch_color.set_fg(Some(Color::Cyan)).set_bold(true);
         }
         _ => {
