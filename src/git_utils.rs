@@ -1,6 +1,6 @@
 use std::fmt;
 
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use git2::{Branch, ObjectType, Oid, Reference, Repository, Status, StatusOptions};
 
 pub struct RepoStatus<'repo> {
@@ -94,16 +94,10 @@ fn get_upstream_status(
                     Ok(UpstreamStatus::Gone)
                 }
                 _ => Err(err),
-            }
+            };
         }
     };
     let upstream_oid = upstream_branch.get().peel(ObjectType::Any)?.id();
-
-    log::warn!(
-        "{} {}",
-        local_branch.get().is_remote(),
-        upstream_branch.get().name_bytes().as_bstr(),
-    );
 
     let (ahead, behind) = repo.graph_ahead_behind(local_oid, upstream_oid)?;
 
@@ -137,6 +131,16 @@ fn get_working_tree_status(repo: &Repository) -> Result<WorkingTreeStatus, git2:
     }
 
     Ok(result)
+}
+
+impl<'repo> HeadStatus<'repo> {
+    pub fn name(&self) -> &BStr {
+        match self {
+            HeadStatus::Unborn => "master".as_bytes().as_bstr(),
+            HeadStatus::Detached { name, .. } => name.as_ref(),
+            HeadStatus::Branch { name, .. } => name.as_ref(),
+        }
+    }
 }
 
 impl<'repo> fmt::Display for HeadStatus<'repo> {

@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use bstr::ByteSlice;
 use failure::Error;
 use git2::Repository;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
@@ -26,7 +27,7 @@ pub fn run(
         config,
         &root,
         |path, repos| visit_dir(stdout, path, repos),
-        |path, init, repo| visit_repo(stdout, path, init, repo),
+        |path, init, repo| visit_repo(stdout, config, path, init, repo),
     );
     Ok(())
 }
@@ -49,6 +50,7 @@ fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Repository
 
 fn visit_repo(
     stdout: &StandardStream,
+    config: &Config,
     path: &Path,
     &repo_path_padding: &usize,
     repo: &mut Repository,
@@ -66,18 +68,21 @@ fn visit_repo(
         }
     };
 
-    if let Err(err) = print_status(&mut stdout.lock(), path, repo_path_padding, &status) {
+    if let Err(err) = print_status(&mut stdout.lock(), config, path, repo_path_padding, &status) {
         log::error!("failed to write to stdout\ncaused by: {}", err);
     }
 }
 
 fn print_status(
     stdout: &mut impl WriteColor,
+    config: &Config,
     path: &Path,
     repo_path_padding: usize,
     status: &git_utils::RepoStatus,
 ) -> io::Result<()> {
     write!(stdout, "{:<pad$} ", path.display(), pad = repo_path_padding,)?;
+
+    let settings = config.settings(path);
 
     let (text, color) = match status.upstream {
         git_utils::UpstreamStatus::None => (String::new(), None),
@@ -112,7 +117,17 @@ fn print_status(
         write!(stdout, "  ")?;
     }
 
-    stdout.set_color(&ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+    let mut branch_color = ColorSpec::new();
+    match settings.default_branch {
+        Some(name) if name.as_bytes().as_bstr() != status.head.name() => {
+            branch_color.set_fg(Some(Color::Cyan)).set_bold(true);
+        }
+        _ => {
+            branch_color.set_fg(Some(Color::Cyan));
+        }
+    }
+
+    stdout.set_color(&branch_color)?;
     write!(stdout, "{}", status.head)?;
     stdout.reset()?;
 
