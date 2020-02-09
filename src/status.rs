@@ -81,6 +81,7 @@ fn print_status(
 
     let (text, color) = match status.upstream {
         git_utils::UpstreamStatus::None => (String::new(), None),
+        git_utils::UpstreamStatus::Gone => ("×".to_owned(), Some(Color::Red)),
         git_utils::UpstreamStatus::Upstream {
             ahead: 0,
             behind: 0,

@@ -25,6 +25,7 @@ pub enum HeadStatus<'repo> {
 pub enum UpstreamStatus {
     None,
     Upstream { ahead: usize, behind: usize },
+    Gone,
 }
 
 pub struct WorkingTreeStatus {
@@ -84,10 +85,25 @@ fn get_upstream_status(
 
     let upstream_branch = match local_branch.upstream() {
         Ok(branch) => branch,
-        Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(UpstreamStatus::None),
-        Err(err) => return Err(err),
+        Err(err) => {
+            return match (err.code(), err.class()) {
+                // No upstream is set in the config
+                (git2::ErrorCode::NotFound, git2::ErrorClass::Config) => Ok(UpstreamStatus::None),
+                // The upstream is set in the config but no longer exists.
+                (git2::ErrorCode::NotFound, git2::ErrorClass::Reference) => {
+                    Ok(UpstreamStatus::Gone)
+                }
+                _ => Err(err),
+            }
+        }
     };
     let upstream_oid = upstream_branch.get().peel(ObjectType::Any)?.id();
+
+    log::warn!(
+        "{} {}",
+        local_branch.get().is_remote(),
+        upstream_branch.get().name_bytes().as_bstr(),
+    );
 
     let (ahead, behind) = repo.graph_ahead_behind(local_oid, upstream_oid)?;
 
