@@ -95,7 +95,7 @@ fn print_status(
             (format!("{}↓", behind), Some(Color::Red))
         }
         git_utils::UpstreamStatus::Upstream { ahead, behind } => {
-            (format!("{}↑ {}↓", ahead, behind), Some(Color::Yellow))
+            (format!("{}↓ {}↑", behind, ahead), Some(Color::Yellow))
         }
     };
     stdout.set_color(&ColorSpec::new().set_fg(color))?;
