@@ -15,3 +15,7 @@ pub fn print_dir(stdout: &mut impl WriteColor, path: &Path) -> io::Result<()> {
     stdout.reset()?;
     writeln!(stdout)
 }
+
+pub fn handle_print_error(err: io::Error) {
+    log::error!("failed to write to stdout\ncaused by: {}", err);
+}

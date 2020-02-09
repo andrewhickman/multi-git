@@ -34,9 +34,8 @@ pub fn run(
 fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Repository)]) -> usize {
     if !repos.is_empty() {
         if !path.as_os_str().is_empty() {
-            if let Err(err) = print_utils::print_dir(&mut stdout.lock(), path) {
-                log::error!("failed to write to stdout\ncaused by: {}", err);
-            }
+            print_utils::print_dir(&mut stdout.lock(), path)
+                .unwrap_or_else(print_utils::handle_print_error);
         }
     }
 
@@ -67,9 +66,8 @@ fn visit_repo(
         }
     };
 
-    if let Err(err) = print_status(&mut stdout.lock(), config, path, repo_path_padding, &status) {
-        log::error!("failed to write to stdout\ncaused by: {}", err);
-    }
+    print_status(&mut stdout.lock(), config, path, repo_path_padding, &status)
+        .unwrap_or_else(print_utils::handle_print_error)
 }
 
 fn print_status(
