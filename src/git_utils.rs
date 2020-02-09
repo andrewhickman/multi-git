@@ -170,3 +170,18 @@ impl<'repo> fmt::Display for HeadStatus<'repo> {
         }
     }
 }
+
+impl UpstreamStatus {
+    pub fn exists(&self) -> bool {
+        match self {
+            UpstreamStatus::Upstream { .. } => true,
+            UpstreamStatus::None | UpstreamStatus::Gone => false,
+        }
+    }
+}
+
+impl WorkingTreeStatus {
+    pub fn is_dirty(&self) -> bool {
+        self.index_changed || self.working_changed
+    }
+}
