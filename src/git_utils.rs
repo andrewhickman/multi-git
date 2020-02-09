@@ -1,7 +1,9 @@
 use std::fmt;
 
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BString, ByteSlice};
 use git2::{Branch, ObjectType, Repository, Status, StatusOptions};
+
+use crate::config::Settings;
 
 const HEAD_FILE: &str = "HEAD";
 const REFS_HEADS_FILE: &str = "refs/heads/";
@@ -47,7 +49,7 @@ pub fn get_status<'repo>(repo: &'repo mut Repository) -> Result<RepoStatus<'repo
 }
 
 fn get_head_status<'repo>(repo: &'repo Repository) -> Result<HeadStatus, git2::Error> {
-    let head = repo.find_reference("HEAD")?;
+    let head = repo.find_reference(HEAD_FILE)?;
     match head.symbolic_target_bytes() {
         // HEAD points to a branch
         Some(name) if name.starts_with(REFS_HEADS_FILE.as_bytes()) => {
@@ -146,6 +148,18 @@ fn get_working_tree_status(repo: &Repository) -> Result<WorkingTreeStatus, git2:
     }
 
     Ok(result)
+}
+
+impl<'repo> HeadStatus<'repo> {
+    pub fn on_default_branch(&self, settings: &Settings) -> bool {
+        match &self.kind {
+            HeadStatusKind::Branch { .. } => match &settings.default_branch {
+                Some(branch) => branch.as_bytes() == self.name,
+                None => true,
+            },
+            _ => false,
+        }
+    }
 }
 
 impl<'repo> fmt::Display for HeadStatus<'repo> {

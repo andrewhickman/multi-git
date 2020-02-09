@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use bstr::ByteSlice;
 use failure::Error;
 use git2::Repository;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
@@ -118,13 +117,9 @@ fn print_status(
     }
 
     let mut branch_color = ColorSpec::new();
-    match settings.default_branch {
-        Some(name) if name.as_bytes().as_bstr() != status.head.name => {
-            branch_color.set_fg(Some(Color::Cyan)).set_bold(true);
-        }
-        _ => {
-            branch_color.set_fg(Some(Color::Cyan));
-        }
+    branch_color.set_fg(Some(Color::Cyan));
+    if !status.head.on_default_branch(&settings) {
+        branch_color.set_bold(true);
     }
 
     stdout.set_color(&branch_color)?;
