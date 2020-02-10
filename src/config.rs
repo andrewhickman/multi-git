@@ -17,6 +17,7 @@ pub struct Config {
     pub default_settings: Settings,
     #[serde(default)]
     pub aliases: BTreeMap<String, PathBuf>,
+    #[serde(default)]
     pub settings: SettingsMatcher,
 }
 
