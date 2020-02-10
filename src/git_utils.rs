@@ -153,11 +153,13 @@ fn get_working_tree_status(repo: &Repository) -> Result<WorkingTreeStatus, git2:
 impl<'repo> HeadStatus<'repo> {
     pub fn on_default_branch(&self, settings: &Settings) -> bool {
         match &self.kind {
-            HeadStatusKind::Branch { .. } => match &settings.default_branch {
-                Some(branch) => branch.as_bytes() == self.name,
-                None => true,
-            },
-            _ => false,
+            HeadStatusKind::Branch { .. } | HeadStatusKind::Unborn => {
+                match &settings.default_branch {
+                    Some(branch) => branch.as_bytes() == self.name,
+                    None => true,
+                }
+            }
+            HeadStatusKind::Detached => false,
         }
     }
 }
