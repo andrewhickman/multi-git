@@ -26,7 +26,7 @@ pub fn run(
         config,
         &root,
         |path, repos| visit_dir(stdout, path, repos),
-        |path, init, settings, repo| visit_repo(stdout, config, path, init, settings, repo),
+        |path, &init, settings, repo| visit_repo(stdout, config, path, init, settings, repo),
     );
     Ok(())
 }
@@ -36,11 +36,9 @@ fn visit_dir(
     path: &Path,
     repos: &[(PathBuf, Settings, Repository)],
 ) -> usize {
-    if !repos.is_empty() {
-        if !path.as_os_str().is_empty() {
-            print_utils::print_dir(&mut stdout.lock(), path)
-                .unwrap_or_else(print_utils::handle_print_error);
-        }
+    if !repos.is_empty() && !path.as_os_str().is_empty() {
+        print_utils::print_dir(&mut stdout.lock(), path)
+            .unwrap_or_else(print_utils::handle_print_error);
     }
 
     repos
@@ -54,7 +52,7 @@ fn visit_repo(
     stdout: &StandardStream,
     config: &Config,
     path: &Path,
-    &repo_path_padding: &usize,
+    repo_path_padding: usize,
     settings: &Settings,
     repo: &mut Repository,
 ) {

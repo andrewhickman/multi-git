@@ -60,7 +60,7 @@ pub fn try_open_repo(path: &Path) -> Result<Option<Repository>, git2::Error> {
     }
 }
 
-pub fn get_status<'repo>(repo: &'repo mut Repository) -> Result<RepoStatus<'repo>, git2::Error> {
+pub fn get_status(repo: &mut Repository) -> Result<RepoStatus<'_>, git2::Error> {
     let head = get_head_status(repo)?;
     let upstream = get_upstream_status(repo, &head)?;
     let working_tree = get_working_tree_status(repo)?;
@@ -72,7 +72,7 @@ pub fn get_status<'repo>(repo: &'repo mut Repository) -> Result<RepoStatus<'repo
     })
 }
 
-fn get_head_status<'repo>(repo: &'repo Repository) -> Result<HeadStatus, git2::Error> {
+fn get_head_status(repo: &Repository) -> Result<HeadStatus, git2::Error> {
     let head = repo.find_reference(HEAD_FILE)?;
     match head.symbolic_target_bytes() {
         // HEAD points to a branch

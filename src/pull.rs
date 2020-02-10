@@ -32,11 +32,9 @@ pub fn run(
 }
 
 fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Settings, Repository)]) {
-    if !repos.is_empty() {
-        if !path.as_os_str().is_empty() {
-            print_utils::print_dir(&mut stdout.lock(), path)
-                .unwrap_or_else(print_utils::handle_print_error);
-        }
+    if !repos.is_empty() && !path.as_os_str().is_empty() {
+        print_utils::print_dir(&mut stdout.lock(), path)
+            .unwrap_or_else(print_utils::handle_print_error);
     }
 }
 
