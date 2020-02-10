@@ -6,7 +6,7 @@ use failure::Error;
 use git2::Repository;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 
-use crate::config::Config;
+use crate::config::{Config, Settings};
 use crate::walk::walk_repos;
 use crate::{alias, cli, git_utils, print_utils};
 
@@ -26,12 +26,16 @@ pub fn run(
         config,
         &root,
         |path, repos| visit_dir(stdout, path, repos),
-        |path, init, repo| visit_repo(stdout, config, path, init, repo),
+        |path, init, settings, repo| visit_repo(stdout, config, path, init, settings, repo),
     );
     Ok(())
 }
 
-fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Repository)]) -> usize {
+fn visit_dir(
+    stdout: &StandardStream,
+    path: &Path,
+    repos: &[(PathBuf, Settings, Repository)],
+) -> usize {
     if !repos.is_empty() {
         if !path.as_os_str().is_empty() {
             print_utils::print_dir(&mut stdout.lock(), path)
@@ -41,7 +45,7 @@ fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Repository
 
     repos
         .iter()
-        .map(|(path, _)| path.as_os_str().len())
+        .map(|(path, _, _)| path.as_os_str().len())
         .max()
         .unwrap_or(0)
 }
@@ -51,6 +55,7 @@ fn visit_repo(
     config: &Config,
     path: &Path,
     &repo_path_padding: &usize,
+    settings: &Settings,
     repo: &mut Repository,
 ) {
     log::debug!("getting status for repo at `{}`", path.display());
@@ -66,8 +71,15 @@ fn visit_repo(
         }
     };
 
-    print_status(&mut stdout.lock(), config, path, repo_path_padding, &status)
-        .unwrap_or_else(print_utils::handle_print_error)
+    print_status(
+        &mut stdout.lock(),
+        config,
+        path,
+        repo_path_padding,
+        settings,
+        &status,
+    )
+    .unwrap_or_else(print_utils::handle_print_error)
 }
 
 fn print_status(
@@ -75,11 +87,10 @@ fn print_status(
     config: &Config,
     path: &Path,
     repo_path_padding: usize,
+    settings: &Settings,
     status: &git_utils::RepoStatus,
 ) -> io::Result<()> {
     write!(stdout, "{:<pad$} ", path.display(), pad = repo_path_padding,)?;
-
-    let settings = config.settings(path);
 
     let (text, color) = match status.upstream {
         git_utils::UpstreamStatus::None => (String::new(), None),

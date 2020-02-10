@@ -89,6 +89,7 @@ impl SettingsMatcher {
 pub struct Settings {
     pub default_branch: Option<String>,
     pub editor: Option<String>,
+    pub ignore: Option<bool>,
 }
 
 impl Settings {
@@ -98,6 +99,9 @@ impl Settings {
         }
         if other.editor.is_some() {
             self.editor.clone_from(&other.editor);
+        }
+        if other.ignore.is_some() {
+            self.ignore.clone_from(&other.ignore);
         }
     }
 }

@@ -6,7 +6,7 @@ use failure::Error;
 use git2::Repository;
 use termcolor::StandardStream;
 
-use crate::config::Config;
+use crate::config::{Config, Settings};
 use crate::walk::walk_repos;
 use crate::{alias, cli, print_utils};
 
@@ -26,12 +26,12 @@ pub fn run(
         config,
         &root,
         |path, repos| visit_dir(stdout, path, repos),
-        |path, (), repo| visit_repo(stdout, config, path, repo),
+        |path, (), settings, repo| visit_repo(stdout, config, path, settings, repo),
     );
     Ok(())
 }
 
-fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Repository)]) {
+fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Settings, Repository)]) {
     if !repos.is_empty() {
         if !path.as_os_str().is_empty() {
             print_utils::print_dir(&mut stdout.lock(), path)
@@ -40,7 +40,12 @@ fn visit_dir(stdout: &StandardStream, path: &Path, repos: &[(PathBuf, Repository
     }
 }
 
-fn visit_repo(stdout: &StandardStream, config: &Config, path: &Path, _repo: &mut Repository) {
-    let settings = config.settings(path);
+fn visit_repo(
+    stdout: &StandardStream,
+    config: &Config,
+    path: &Path,
+    settings: &Settings,
+    _repo: &mut Repository,
+) {
     writeln!(stdout.lock(), "{} {:#?}", path.display(), settings).unwrap();
 }

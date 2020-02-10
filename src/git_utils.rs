@@ -1,4 +1,5 @@
 use std::fmt;
+use std::path::Path;
 
 use bstr::{BString, ByteSlice};
 use git2::{Branch, ObjectType, Repository, Status, StatusOptions};
@@ -34,6 +35,29 @@ pub enum UpstreamStatus {
 pub struct WorkingTreeStatus {
     pub working_changed: bool,
     pub index_changed: bool,
+}
+
+pub fn try_open_repo(path: &Path) -> Result<Option<Repository>, git2::Error> {
+    match Repository::open(path) {
+        Ok(repo) => {
+            log::debug!("opened repo at `{}`", path.display());
+            Ok(Some(repo))
+        }
+        Err(err)
+            if err.class() == git2::ErrorClass::Repository
+                && err.code() == git2::ErrorCode::NotFound =>
+        {
+            Ok(None)
+        }
+        Err(err) => {
+            log::error!(
+                "failed to open repo at `{}`\ncaused by: {}",
+                path.display(),
+                err.message()
+            );
+            Err(err)
+        }
+    }
 }
 
 pub fn get_status<'repo>(repo: &'repo mut Repository) -> Result<RepoStatus<'repo>, git2::Error> {
