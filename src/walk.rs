@@ -96,7 +96,12 @@ fn try_open_repo(path: &Path) -> Result<Option<Repository>, git2::Error> {
             log::debug!("opened repo at `{}`", path.display());
             Ok(Some(repo))
         }
-        Err(err) if err.code() == git2::ErrorCode::NotFound => Ok(None),
+        Err(err)
+            if err.class() == git2::ErrorClass::Repository
+                && err.code() == git2::ErrorCode::NotFound =>
+        {
+            Ok(None)
+        }
         Err(err) => {
             log::error!(
                 "failed to open repo at `{}`\ncaused by: {}",
