@@ -43,12 +43,19 @@ fn resolve_prefix<'a>(
         None => Ok(None),
         Some((key1, path)) => match iter.next() {
             None => Ok(Some(path.as_ref())),
-            Some((key2, _)) => bail!(
-                "ambiguous alias `{}` (could match either `{}` or `{}`)",
-                prefix,
-                key1,
-                key2
-            ),
+            Some((key2, _)) => {
+                if key1 == prefix {
+                    log::warn!("alias `{}` is a prefix of alias `{}`", key1, key2);
+                    Ok(Some(path.as_ref()))
+                } else {
+                    bail!(
+                        "ambiguous alias `{}` (could match either `{}` or `{}`)",
+                        prefix,
+                        key1,
+                        key2
+                    )
+                }
+            }
         },
     }
 }
