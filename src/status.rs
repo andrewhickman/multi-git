@@ -12,10 +12,13 @@ use crate::walk::walk_repos;
 use crate::{alias, cli, git_utils, print_utils};
 
 #[derive(Debug, StructOpt)]
-#[structopt(about = "Show the status of your repos")]
+#[structopt(about = "Show the status of your repos", no_version)]
 pub struct StatusArgs {
-    #[structopt(help = "the path or alias of the repo to get status for")]
-    name: Option<String>,
+    #[structopt(
+        name = "TARGET",
+        help = "the path or alias of the repo to get status for"
+    )]
+    target: Option<String>,
 }
 
 pub fn run(
@@ -24,7 +27,7 @@ pub fn run(
     status_args: &StatusArgs,
     config: &Config,
 ) -> Result<(), Error> {
-    let root = if let Some(name) = &status_args.name {
+    let root = if let Some(name) = &status_args.target {
         Cow::Owned(alias::resolve(name, args, config)?)
     } else {
         Cow::Borrowed(&config.root)

@@ -12,10 +12,10 @@ use crate::walk::walk_repos;
 use crate::{alias, cli, print_utils};
 
 #[derive(Debug, StructOpt)]
-#[structopt(about = "Pull changes in your repos")]
+#[structopt(about = "Pull changes in your repos", no_version)]
 pub struct PullArgs {
-    #[structopt(help = "the path or alias of the repo to pull")]
-    name: Option<String>,
+    #[structopt(name = "TARGET", help = "the path or alias of the repo to pull")]
+    target: Option<String>,
 }
 
 pub fn run(
@@ -24,7 +24,7 @@ pub fn run(
     pull_args: &PullArgs,
     config: &Config,
 ) -> Result<(), Error> {
-    let root = if let Some(name) = &pull_args.name {
+    let root = if let Some(name) = &pull_args.target {
         Cow::Owned(alias::resolve(name, args, config)?)
     } else {
         Cow::Borrowed(&config.root)

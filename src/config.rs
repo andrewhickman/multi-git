@@ -7,7 +7,7 @@ use failure::{Error, ResultExt};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{de, Deserialize, Deserializer};
 
-pub const CONFIG_PATH_VAR: &str = "MULTIGIT_CONFIG_PATH";
+pub const FILE_PATH_VAR: &str = "MULTIGIT_CONFIG_PATH";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
@@ -22,14 +22,18 @@ pub struct Config {
 }
 
 pub fn parse() -> Result<Config, Error> {
-    match env::var_os(CONFIG_PATH_VAR) {
+    match file_path() {
         Some(path) => parse_file(path),
         None => Config::default(),
     }
 }
 
-fn parse_file(path: impl AsRef<Path> + Into<PathBuf>) -> Result<Config, Error> {
-    log::debug!("Reading config from `{}`", path.as_ref().display());
+pub fn file_path() -> Option<PathBuf> {
+    env::var_os(FILE_PATH_VAR).map(PathBuf::from)
+}
+
+fn parse_file(path: PathBuf) -> Result<Config, Error> {
+    log::debug!("Reading config from `{}`", path.display());
 
     let reader = fs_err::read_to_string(path)?;
     let config: Config = toml::from_str(&reader).context("failed to parse TOML")?;

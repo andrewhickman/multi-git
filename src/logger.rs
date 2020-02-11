@@ -15,6 +15,7 @@ pub fn init(args: &cli::Args) {
 }
 
 #[derive(Copy, Clone, Debug, StructOpt)]
+#[structopt(no_version)]
 pub struct Opts {
     #[structopt(
         long,
