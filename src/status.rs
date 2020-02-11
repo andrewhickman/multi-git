@@ -37,7 +37,7 @@ pub fn run(
         config,
         &root,
         |path, repos| visit_dir(stdout, path, repos),
-        |path, &init, settings, repo| visit_repo(stdout, config, path, init, settings, repo),
+        |path, &init, settings, repo| visit_repo(stdout, path, init, settings, repo),
     );
     Ok(())
 }
@@ -63,7 +63,6 @@ fn visit_dir(
 
 fn visit_repo(
     stdout: &StandardStream,
-    config: &Config,
     path: &Path,
     repo_path_padding: usize,
     settings: &Settings,
@@ -84,7 +83,6 @@ fn visit_repo(
 
     print_status(
         &mut stdout.lock(),
-        config,
         path,
         repo_path_padding,
         settings,
@@ -95,7 +93,6 @@ fn visit_repo(
 
 fn print_status(
     stdout: &mut impl WriteColor,
-    config: &Config,
     path: &Path,
     repo_path_padding: usize,
     settings: &Settings,

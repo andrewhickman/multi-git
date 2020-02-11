@@ -13,11 +13,12 @@ where
     D: FnMut(&Path, &[(PathBuf, Settings, Repository)]) -> I + Sync,
     F: Fn(&Path, &I, &Settings, &mut Repository) + Sync,
 {
+    let relative_path = config.get_relative_path(root);
     match git_utils::try_open_repo(root) {
         Ok(Some(mut repo)) => visit_repo(
-            config.get_relative_path(root),
+            relative_path,
             &Default::default(),
-            &config.settings(root),
+            &config.settings(relative_path),
             &mut repo,
         ),
         Ok(None) => walk_repos_inner(config, root, root, &mut visit_dir, &visit_repo),
