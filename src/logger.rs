@@ -1,24 +1,40 @@
 use std::io::{self, Write};
 
+use structopt::StructOpt;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-pub fn init(options: &Options) {
+use crate::cli;
+
+pub fn init(args: &cli::Args) {
     log::set_boxed_logger(Box::new(Logger {
-        stderr: StandardStream::stderr(options.color_choice),
+        stderr: StandardStream::stderr(args.color_choice(atty::Stream::Stderr)),
         stdout: StandardStream::stdout(ColorChoice::Never),
     }))
     .unwrap();
-    log::set_max_level(options.level_filter());
+    log::set_max_level(args.logger.level_filter());
 }
 
-pub struct Options {
-    pub debug: bool,
-    pub trace: bool,
-    pub quiet: bool,
-    pub color_choice: ColorChoice,
+#[derive(Copy, Clone, Debug, StructOpt)]
+pub struct Opts {
+    #[structopt(
+        long,
+        help = "Enable debug logging",
+        conflicts_with = "quiet",
+        global = true
+    )]
+    debug: bool,
+    #[structopt(
+        long,
+        help = "Enable trace logging",
+        conflicts_with = "quiet",
+        global = true
+    )]
+    trace: bool,
+    #[structopt(long, short, help = "Disable all logging to stderr", global = true)]
+    quiet: bool,
 }
 
-impl Options {
+impl Opts {
     fn level_filter(&self) -> log::LevelFilter {
         if self.quiet {
             log::LevelFilter::Off

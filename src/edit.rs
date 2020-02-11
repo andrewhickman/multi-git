@@ -1,15 +1,25 @@
 use std::process::Command;
 
 use failure::{bail, Error, ResultExt};
+use structopt::StructOpt;
 use termcolor::StandardStream;
 
 use crate::config::Config;
 use crate::{alias, cli};
 
+#[derive(Debug, StructOpt)]
+#[structopt(about = "Open a repo in an editor")]
+pub struct EditArgs {
+    #[structopt(help = "the path or alias of the repo to edit")]
+    name: String,
+    #[structopt(long, short, help = "override the editor program")]
+    editor: Option<String>,
+}
+
 pub fn run(
     _stdout: &StandardStream,
     args: &cli::Args,
-    edit_args: &cli::EditArgs,
+    edit_args: &EditArgs,
     config: &Config,
 ) -> Result<(), Error> {
     let path = alias::resolve(&edit_args.name, args, config)?;

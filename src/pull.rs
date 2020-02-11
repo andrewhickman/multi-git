@@ -4,16 +4,24 @@ use std::path::{Path, PathBuf};
 
 use failure::Error;
 use git2::Repository;
+use structopt::StructOpt;
 use termcolor::StandardStream;
 
 use crate::config::{Config, Settings};
 use crate::walk::walk_repos;
 use crate::{alias, cli, print_utils};
 
+#[derive(Debug, StructOpt)]
+#[structopt(about = "Pull changes in your repos")]
+pub struct PullArgs {
+    #[structopt(help = "the path or alias of the repo to pull")]
+    name: Option<String>,
+}
+
 pub fn run(
     stdout: &StandardStream,
     args: &cli::Args,
-    pull_args: &cli::PullArgs,
+    pull_args: &PullArgs,
     config: &Config,
 ) -> Result<(), Error> {
     let root = if let Some(name) = &pull_args.name {

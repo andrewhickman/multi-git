@@ -4,16 +4,24 @@ use std::path::{Path, PathBuf};
 
 use failure::Error;
 use git2::Repository;
+use structopt::StructOpt;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 
 use crate::config::{Config, Settings};
 use crate::walk::walk_repos;
 use crate::{alias, cli, git_utils, print_utils};
 
+#[derive(Debug, StructOpt)]
+#[structopt(about = "Show the status of your repos")]
+pub struct StatusArgs {
+    #[structopt(help = "the path or alias of the repo to get status for")]
+    name: Option<String>,
+}
+
 pub fn run(
     stdout: &StandardStream,
     args: &cli::Args,
-    status_args: &cli::StatusArgs,
+    status_args: &StatusArgs,
     config: &Config,
 ) -> Result<(), Error> {
     let root = if let Some(name) = &status_args.name {

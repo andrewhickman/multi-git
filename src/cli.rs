@@ -1,81 +1,46 @@
-use argh::FromArgs;
+use structopt::clap::AppSettings;
+use structopt::StructOpt;
 use termcolor::ColorChoice;
 
-use crate::logger;
+use crate::{edit, logger, pull, status};
 
 pub fn parse_args() -> Args {
-    argh::from_env()
+    Args::from_args()
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(description = "Utility for managing multiple git repos")]
+#[derive(Debug, StructOpt)]
+#[structopt(about = "Utility for managing multiple git repos")]
+#[structopt(global_setting = AppSettings::DisableVersion)]
+#[structopt(global_setting = AppSettings::UnifiedHelpMessage)]
+#[structopt(global_setting = AppSettings::VersionlessSubcommands)]
 pub struct Args {
-    #[argh(subcommand)]
+    #[structopt(subcommand)]
     pub command: Command,
-    #[argh(switch, short = 'q', description = "don't print anything to stderr")]
-    pub quiet: bool,
-    #[argh(switch, description = "enable debug logging")]
-    pub debug: bool,
-    #[argh(switch, description = "enable trace logging")]
-    pub trace: bool,
-    #[argh(switch, short = 'A', description = "disable aliases")]
+    #[structopt(flatten)]
+    pub logger: logger::Opts,
+    #[structopt(long, short = "A", help = "Disable aliases")]
     pub no_alias: bool,
-    #[argh(
-        option,
-        description = "control when to use colored output (options: always, ansi, auto, never)",
-        from_str_fn(parse_color_choice)
+    #[structopt(
+        long,
+        help = "Control when to use colored output",
+        parse(try_from_str = parse_color_choice),
+        possible_values = COLOR_CHOICE_VALUES,
+        global = true
     )]
     pub color: Option<ColorChoice>,
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(subcommand)]
+#[derive(Debug, StructOpt)]
 pub enum Command {
-    Edit(EditArgs),
-    Status(StatusArgs),
-    Pull(PullArgs),
-}
-
-#[derive(Debug, FromArgs)]
-#[argh(subcommand, name = "edit", description = "Open a repo in an editor")]
-pub struct EditArgs {
-    #[argh(positional, description = "the path or alias of the repo to edit")]
-    pub name: String,
-    #[argh(option, short = 'e', description = "override the editor program")]
-    pub editor: Option<String>,
-}
-
-#[derive(Debug, FromArgs)]
-#[argh(
-    subcommand,
-    name = "status",
-    description = "Show the status of your repos"
-)]
-pub struct StatusArgs {
-    #[argh(
-        positional,
-        description = "the path or alias of the repo to get status for"
-    )]
-    pub name: Option<String>,
-}
-
-#[derive(Debug, FromArgs)]
-#[argh(subcommand, name = "pull", description = "Pull changes in your repos")]
-pub struct PullArgs {
-    #[argh(positional, description = "the path or alias of the repo to pull")]
-    pub name: Option<String>,
+    #[structopt(name = "edit")]
+    Edit(edit::EditArgs),
+    #[structopt(name = "status")]
+    Status(status::StatusArgs),
+    #[structopt(name = "pull")]
+    Pull(pull::PullArgs),
 }
 
 impl Args {
-    pub fn logger_options(&self) -> logger::Options {
-        logger::Options {
-            quiet: self.quiet,
-            debug: self.debug,
-            trace: self.trace,
-            color_choice: self.color_choice(atty::Stream::Stderr),
-        }
-    }
-
     pub fn color_choice(&self, stream: atty::Stream) -> ColorChoice {
         match self.color {
             Some(ColorChoice::Auto) | None => {
@@ -90,12 +55,14 @@ impl Args {
     }
 }
 
+const COLOR_CHOICE_VALUES: &[&str] = &["always", "ansi", "auto", "never"];
+
 fn parse_color_choice(input: &str) -> Result<ColorChoice, String> {
     match input {
         "always" => Ok(ColorChoice::Always),
         "ansi" => Ok(ColorChoice::AlwaysAnsi),
         "auto" => Ok(ColorChoice::Auto),
         "never" => Ok(ColorChoice::Never),
-        _ => Err("must be one of 'always', 'ansi', 'auto' or 'never'".to_owned()),
+        _ => unreachable!(),
     }
 }

@@ -18,7 +18,7 @@ fn main() {
     human_panic::setup_panic!();
 
     let args = cli::parse_args();
-    logger::init(&args.logger_options());
+    logger::init(&args);
     log::trace!("{:#?}", args);
 
     if let Err(err) = run(args) {
