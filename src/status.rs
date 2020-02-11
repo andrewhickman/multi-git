@@ -41,11 +41,13 @@ fn visit_dir(
             .unwrap_or_else(print_utils::handle_print_error);
     }
 
+    const MIN_REPO_PADDING: usize = 48;
     repos
         .iter()
         .map(|(path, _, _)| path.as_os_str().len())
+        .filter(|&len| len > MIN_REPO_PADDING)
         .max()
-        .unwrap_or(0)
+        .unwrap_or(MIN_REPO_PADDING)
 }
 
 fn visit_repo(
