@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::{env, fmt};
@@ -94,6 +93,8 @@ pub struct Settings {
     pub default_branch: Option<String>,
     pub editor: Option<String>,
     pub ignore: Option<bool>,
+    #[serde(skip)]
+    glob: String,
 }
 
 impl Settings {
@@ -140,9 +141,9 @@ impl<'de> Deserialize<'de> for SettingsMatcher {
                 let mut settings = Vec::with_capacity(map.size_hint().unwrap_or(4));
                 let mut globs = GlobSetBuilder::new();
 
-                while let Some((glob, entry)) = map.next_entry::<Cow<str>, Settings>()? {
+                while let Some((glob, entry)) = map.next_entry::<String, Settings>()? {
                     globs.add(Glob::new(&glob).map_err(de::Error::custom)?);
-                    settings.push(entry);
+                    settings.push(Settings { glob, ..entry });
                 }
 
                 Ok(SettingsMatcher {
