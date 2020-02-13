@@ -1,14 +1,21 @@
 use std::io::{self, Write};
 
+use atty::Stream;
 use structopt::StructOpt;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 
 use crate::cli;
 
 pub fn init(args: &cli::Args) {
+    let stdout = if atty::is(Stream::Stdout) == atty::is(Stream::Stderr) {
+        Some(io::stdout())
+    } else {
+        None
+    };
+
     log::set_boxed_logger(Box::new(Logger {
-        stderr: StandardStream::stderr(args.color_choice(atty::Stream::Stderr)),
-        stdout: StandardStream::stdout(ColorChoice::Never),
+        stderr: StandardStream::stderr(args.color_choice(Stream::Stderr)),
+        stdout,
     }))
     .unwrap();
     log::set_max_level(args.logger.level_filter());
@@ -51,7 +58,7 @@ impl Opts {
 
 struct Logger {
     stderr: StandardStream,
-    stdout: StandardStream,
+    stdout: Option<io::Stdout>,
 }
 
 impl log::Log for Logger {
@@ -85,7 +92,7 @@ impl Logger {
             log::Level::Error => ("error:", Color::Red),
         };
 
-        let _stdout_lock = self.stdout.lock();
+        let _stdout_lock = self.stdout.as_ref().map(io::Stdout::lock);
 
         let mut writer = self.stderr.lock();
         let mut lines = msg.as_ref().lines();
