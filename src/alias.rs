@@ -2,12 +2,10 @@ use std::collections::BTreeMap;
 use std::ops::Bound;
 use std::path::{Path, PathBuf};
 
-use failure::{bail, ensure, Error};
-
 use crate::cli;
 use crate::config::Config;
 
-pub fn resolve(name: &str, args: &cli::Args, config: &Config) -> Result<PathBuf, Error> {
+pub fn resolve(name: &str, args: &cli::Args, config: &Config) -> crate::Result<PathBuf> {
     let full_path = if let Some(path) = resolve_prefix(&config.aliases, name, args)? {
         let full_path = config.root.join(path);
         log::trace!("resolved alias `{}` to `{}`", name, full_path.display());
@@ -18,19 +16,22 @@ pub fn resolve(name: &str, args: &cli::Args, config: &Config) -> Result<PathBuf,
         full_path
     };
 
-    ensure!(
-        full_path.exists(),
-        "path `{}` does not exist",
-        full_path.display()
-    );
-    Ok(full_path)
+    if !full_path.exists() {
+        Err(crate::Error::from_message(format!(
+            "failed to resolve path or alias `{}` (path `{}` does not exist)",
+            name,
+            full_path.display()
+        )))
+    } else {
+        Ok(full_path)
+    }
 }
 
 fn resolve_prefix<'a>(
     map: &'a BTreeMap<String, PathBuf>,
     prefix: &str,
     args: &cli::Args,
-) -> Result<Option<&'a Path>, Error> {
+) -> crate::Result<Option<&'a Path>> {
     if args.no_alias {
         return Ok(None);
     }
@@ -48,12 +49,10 @@ fn resolve_prefix<'a>(
                     log::warn!("alias `{}` is a prefix of alias `{}`", key1, key2);
                     Ok(Some(path.as_ref()))
                 } else {
-                    bail!(
+                    Err(crate::Error::from_message(format!(
                         "ambiguous alias `{}` (could match either `{}` or `{}`)",
-                        prefix,
-                        key1,
-                        key2
-                    )
+                        prefix, key1, key2
+                    )))
                 }
             }
         },

@@ -1,10 +1,9 @@
 use std::process::Command;
 
-use failure::{bail, Error, ResultExt};
 use structopt::StructOpt;
-use termcolor::StandardStream;
 
 use crate::config::Config;
+use crate::output::Output;
 use crate::{alias, cli, config};
 
 #[derive(Debug, StructOpt)]
@@ -23,20 +22,22 @@ pub struct EditArgs {
 }
 
 pub fn run(
-    _stdout: &StandardStream,
+    _out: &Output,
     args: &cli::Args,
     edit_args: &EditArgs,
     config: &Config,
-) -> Result<(), Error> {
+) -> crate::Result<()> {
     let path = if let Some(name) = &edit_args.target {
         alias::resolve(name, args, config)?
     } else if edit_args.config {
         match config::file_path() {
             Some(path) => path,
-            None => bail!(
-                "the `{}` environment variable must be set",
-                config::FILE_PATH_VAR
-            ),
+            None => {
+                return Err(crate::Error::from_message(format!(
+                    "the `{}` environment variable must be set",
+                    config::FILE_PATH_VAR
+                )))
+            }
         }
     } else {
         unreachable!()
@@ -48,7 +49,9 @@ pub fn run(
         (Some(arg), _) => arg,
         (None, Some(config)) => config,
         (None, None) => {
-            bail!("either the `--editor` option or the `editor` config value must be provided")
+            return Err(crate::Error::from_message(
+                "either the `--editor` option or the `editor` config value must be provided",
+            ))
         }
     };
 
@@ -59,7 +62,9 @@ pub fn run(
     }
     log::debug!("spawning command `${:?}`", command);
 
-    let child = command.spawn().context("failed to launch editor")?;
+    let child = command
+        .spawn()
+        .map_err(|err| crate::Error::with_context(err, "failed to launch editor"))?;
     log::debug!("spawned editor with PID {}", child.id());
 
     Ok(())
@@ -69,12 +74,5 @@ pub fn run(
 fn shell() -> Command {
     let mut cmd = Command::new("cmd");
     cmd.arg("/C");
-    cmd
-}
-
-#[cfg(unix)]
-fn shell() -> Command {
-    let mut cmd = Command::new("sh");
-    cmd.arg("-c");
     cmd
 }

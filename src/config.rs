@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::{env, fmt};
 
-use failure::{Error, ResultExt};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{de, Deserialize, Deserializer};
 
@@ -20,7 +19,7 @@ pub struct Config {
     pub settings: SettingsMatcher,
 }
 
-pub fn parse() -> Result<Config, Error> {
+pub fn parse() -> crate::Result<Config> {
     match file_path() {
         Some(path) => parse_file(path),
         None => Config::default(),
@@ -31,25 +30,26 @@ pub fn file_path() -> Option<PathBuf> {
     env::var_os(FILE_PATH_VAR).map(PathBuf::from)
 }
 
-fn parse_file(path: PathBuf) -> Result<Config, Error> {
+fn parse_file(path: PathBuf) -> crate::Result<Config> {
     log::debug!("Reading config from `{}`", path.display());
 
     let reader = fs_err::read_to_string(path)?;
-    let config: Config = toml::from_str(&reader).context("failed to parse TOML")?;
+    let config: Config = toml::from_str(&reader)
+        .map_err(|err| crate::Error::with_context(err, "failed to parse TOML"))?;
 
     Ok(config)
 }
 
 impl Config {
-    pub fn settings<P>(&self, path: P) -> Settings
+    pub fn settings<P>(&self, relative_path: P) -> Settings
     where
         P: AsRef<Path>,
     {
         let mut result = self.default_settings.clone();
-        self.settings.get(&mut result, path.as_ref());
+        self.settings.get(&mut result, relative_path.as_ref());
         log::debug!(
             "got merged settings for path `{}`: {:?}",
-            path.as_ref().display(),
+            relative_path.as_ref().display(),
             result
         );
         result
@@ -59,9 +59,11 @@ impl Config {
         path.strip_prefix(&self.root).unwrap_or(path)
     }
 
-    fn default() -> Result<Config, Error> {
+    fn default() -> crate::Result<Config> {
         Ok(Config {
-            root: env::current_dir().context("failed to get current directory")?,
+            root: env::current_dir().map_err(|err| {
+                crate::Error::with_context(err, "failed to get current directory")
+            })?,
             aliases: BTreeMap::new(),
             settings: SettingsMatcher::default(),
             default_settings: Settings::default(),
