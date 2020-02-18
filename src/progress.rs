@@ -44,7 +44,7 @@ impl<'out, 'block> ProgressBar<'out, 'block> {
                 SetAttribute(Attribute::Bold),
             )?;
             write!(stdout, "{:=>length$}", ">", length = length)?;
-            crossterm::queue!(stdout, SetAttribute(Attribute::NoBold))?;
+            crossterm::queue!(stdout, SetAttribute(Attribute::Reset))?;
             Ok(())
         })
     }

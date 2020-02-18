@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::io::Write;
 
-use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
+use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor, Colorize, Styler};
 use structopt::StructOpt;
 
 use crate::config::Config;
@@ -53,7 +53,7 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
             git::UpstreamStatus::Upstream {
                 ahead: 0,
                 behind: 0,
-            } => ("≡".to_owned(), Color::Cyan),
+            } => ("≡".to_owned(), Color::DarkCyan),
             git::UpstreamStatus::Upstream { ahead, behind: 0 } => {
                 (format!("{}↑", ahead), Color::Green)
             }
@@ -69,26 +69,19 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
         crossterm::queue!(stdout, ResetColor)?;
 
         if status.working_tree.working_changed {
-            crossterm::queue!(
-                stdout,
-                SetForegroundColor(Color::Red),
-                SetAttribute(Attribute::Bold)
-            )?;
-            write!(stdout, "! ")?;
-            crossterm::queue!(stdout, SetAttribute(Attribute::NoBold))?;
+            write!(stdout, "{}", "! ".red().bold())?;
         } else if status.working_tree.index_changed {
-            crossterm::queue!(stdout, SetForegroundColor(Color::Cyan))?;
-            write!(stdout, "~ ")?;
+            write!(stdout, "{}", "~ ".cyan())?;
         } else {
             write!(stdout, "  ")?;
         }
 
-        crossterm::queue!(stdout, SetForegroundColor(Color::Cyan))?;
+        crossterm::queue!(stdout, SetForegroundColor(Color::DarkCyan))?;
         if !status.head.on_default_branch(&entry.settings) {
             crossterm::queue!(stdout, SetAttribute(Attribute::Bold))?;
         }
         write!(stdout, "{}", status.head)?;
-        crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::NoBold))?;
+        crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
 
         Ok(())
     })

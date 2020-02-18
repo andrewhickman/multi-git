@@ -58,6 +58,7 @@ impl Output {
     {
         let mut stdout = self.stdout.lock();
 
+        crossterm::queue!(stdout, cursor::Hide, cursor::DisableBlinking)?;
         writeln!(stdout, "{}", style(&title).yellow().underlined())?;
 
         let (cols, _) = crossterm::terminal::size()?;
@@ -131,7 +132,12 @@ impl BlockInner {
 
     fn finish(&mut self, stdout: &mut io::StdoutLock, len: u16) -> crate::Result<()> {
         self.move_to_row(stdout, len)?;
-        crossterm::queue!(stdout, MoveToColumn(0))?;
+        crossterm::queue!(
+            stdout,
+            MoveToColumn(0),
+            cursor::Show,
+            cursor::EnableBlinking
+        )?;
         stdout.flush()?;
         Ok(())
     }
