@@ -93,6 +93,7 @@ impl SettingsMatcher {
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Settings {
     pub default_branch: Option<String>,
+    pub default_remote: Option<String>,
     pub editor: Option<String>,
     pub ignore: Option<bool>,
     #[serde(skip)]
@@ -103,6 +104,9 @@ impl Settings {
     fn merge(&mut self, other: &Self) {
         if other.default_branch.is_some() {
             self.default_branch.clone_from(&other.default_branch);
+        }
+        if other.default_remote.is_some() {
+            self.default_remote.clone_from(&other.default_remote);
         }
         if other.editor.is_some() {
             self.editor.clone_from(&other.editor);

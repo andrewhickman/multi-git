@@ -171,6 +171,64 @@ impl Repository {
 
         Ok(result)
     }
+
+    pub fn pull<F>(
+        &self,
+        settings: &Settings,
+        status: &RepositoryStatus,
+        mut progress_callback: F,
+    ) -> crate::Result<()>
+    where
+        F: FnMut(git2::Progress) -> crate::Result<bool>,
+    {
+        let branch_name = match &settings.default_branch {
+            Some(default_branch) => default_branch,
+            None => return Err(crate::Error::from_message("no default branch")),
+        };
+
+        let remote_name = match &settings.default_remote {
+            Some(default_branch) => default_branch,
+            None => return Err(crate::Error::from_message("no default remote")),
+        };
+
+        if !status.head.on_default_branch(settings) {
+            return Err(crate::Error::from_message("not on default branch"));
+        }
+
+        if !status.upstream.exists() {
+            return Err(crate::Error::from_message("no upstream branch"));
+        }
+
+        if status.working_tree.is_dirty() {
+            return Err(crate::Error::from_message(
+                "working tree has uncommitted changes",
+            ));
+        }
+
+        let mut remote = self.repo.find_remote(remote_name)?;
+        let branch = self
+            .repo
+            .find_branch(branch_name, git2::BranchType::Local)?;
+
+        let mut result = Ok(());
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.transfer_progress(|progress| match progress_callback(progress) {
+            Ok(result) => result,
+            Err(err) => {
+                result = Err(err);
+                false
+            }
+        });
+
+        remote.fetch(
+            &[branch_name],
+            Some(&mut git2::FetchOptions::new().remote_callbacks(callbacks)),
+            Some("multi-git: fetching"),
+        )?;
+        result?;
+
+        Ok(())
+    }
 }
 
 impl<'repo> HeadStatus<'repo> {

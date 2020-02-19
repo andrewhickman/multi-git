@@ -6,6 +6,8 @@ use std::sync::Mutex;
 use crossterm::cursor::{self, MoveDown, MoveToColumn, MoveUp};
 use crossterm::style::{style, Colorize, Styler};
 
+use crate::progress::ProgressBar;
+
 #[derive(Debug)]
 pub struct Output {
     stdout: io::Stdout,
@@ -175,6 +177,16 @@ impl<'out, 'block> Line<'out, 'block> {
 
     pub fn write_error(&self, err: &crate::Error) {
         self.write(|stdout| err.write(stdout)).ok();
+    }
+
+    pub fn write_progress<F>(&self, status_cols: u16, write_status: F) -> crate::Result<ProgressBar>
+    where
+        F: FnOnce(&mut io::StdoutLock<'out>) -> crate::Result<()>,
+    {
+        let bar = ProgressBar::new(*self, status_cols);
+        self.write(write_status)?;
+        bar.begin()?;
+        Ok(bar)
     }
 
     pub fn columns(&self) -> u16 {
