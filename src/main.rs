@@ -25,7 +25,7 @@ fn main() {
     let out = Output::new();
 
     if let Err(err) = run(&out, &args) {
-        out.write_error(&err);
+        out.writeln_error(&err);
         process::exit(1);
     }
 }

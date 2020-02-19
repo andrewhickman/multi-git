@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 use std::io::Write;
 
-use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor, Colorize, Styler};
+use crossterm::style::{
+    Attribute, Color, Colorize, ResetColor, SetAttribute, SetForegroundColor, Styler,
+};
 use structopt::StructOpt;
 
 use crate::config::Config;

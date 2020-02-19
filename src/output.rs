@@ -46,8 +46,22 @@ impl Output {
         write(&mut self.stdout.lock())
     }
 
+    pub fn writeln<'out, F>(&'out self, write: F) -> crate::Result<()>
+    where
+        F: FnOnce(&mut io::StdoutLock) -> crate::Result<()>,
+    {
+        let mut stdout = self.stdout.lock();
+        write(&mut stdout)?;
+        writeln!(stdout)?;
+        Ok(())
+    }
+
     pub fn write_error(&self, err: &crate::Error) {
         self.write(|stdout| err.write(stdout)).ok();
+    }
+
+    pub fn writeln_error(&self, err: &crate::Error) {
+        self.writeln(|stdout| err.write(stdout)).ok();
     }
 
     pub fn write_block<'out, T, E>(&'out self, title: T, entries: E) -> crate::Result<Block<'out>>
