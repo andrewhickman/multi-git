@@ -44,13 +44,13 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
 
     let mut state = FetchState::Downloading;
     let mut bar = line.write_progress(STATUS_COLS, |stdout| {
-        write!(stdout, "{}", "downloading: ".grey())?;
+        write!(stdout, "{}", "downloading:".grey())?;
         Ok(())
     })?;
     entry.repo.pull(&entry.settings, &status, |progress| {
         if state == FetchState::Downloading && progress.indexed_objects() != 0 {
             bar = line.write_progress(STATUS_COLS, |stdout| {
-                write!(stdout, "{}", "   indexing: ".grey())?;
+                write!(stdout, "{}", "indexing:".grey())?;
                 Ok(())
             })?;
             state = FetchState::Indexing;
