@@ -11,6 +11,7 @@ pub struct ProgressBar<'out, 'block> {
     line: output::Line<'out, 'block>,
     status_cols: u16,
     bar_cols: u16,
+    finished: bool,
 }
 
 impl<'out, 'block> ProgressBar<'out, 'block> {
@@ -19,6 +20,7 @@ impl<'out, 'block> ProgressBar<'out, 'block> {
             line,
             status_cols,
             bar_cols: line.columns().saturating_sub(status_cols + 2),
+            finished: false,
         }
     }
 
@@ -49,7 +51,7 @@ impl<'out, 'block> ProgressBar<'out, 'block> {
         })
     }
 
-    fn finish(&self) -> crate::Result<()> {
+    pub fn finish(&mut self) -> crate::Result<()> {
         self.line.write(|stdout| {
             crossterm::queue!(
                 stdout,
@@ -57,12 +59,16 @@ impl<'out, 'block> ProgressBar<'out, 'block> {
                 Clear(ClearType::UntilNewLine)
             )?;
             Ok(())
-        })
+        })?;
+        self.finished = true;
+        Ok(())
     }
 }
 
 impl<'out, 'block> Drop for ProgressBar<'out, 'block> {
     fn drop(&mut self) {
-        self.finish().ok();
+        if !self.finished {
+            self.finish().ok();
+        }
     }
 }
