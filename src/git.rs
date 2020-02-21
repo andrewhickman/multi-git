@@ -6,6 +6,7 @@ use bstr::{BString, ByteSlice};
 use crate::config::Settings;
 
 const HEAD_FILE: &str = "HEAD";
+const FETCH_HEAD_FILE: &str = "FETCH_HEAD";
 const REFS_HEADS_FILE: &str = "refs/heads/";
 
 pub struct Repository {
@@ -191,24 +192,7 @@ impl Repository {
             None => return Err(crate::Error::from_message("no default remote")),
         };
 
-        if !status.head.on_default_branch(settings) {
-            return Err(crate::Error::from_message("not on default branch"));
-        }
-
-        if !status.upstream.exists() {
-            return Err(crate::Error::from_message("no upstream branch"));
-        }
-
-        if status.working_tree.is_dirty() {
-            return Err(crate::Error::from_message(
-                "working tree has uncommitted changes",
-            ));
-        }
-
         let mut remote = self.repo.find_remote(remote_name)?;
-        let branch = self
-            .repo
-            .find_branch(branch_name, git2::BranchType::Local)?;
 
         let repo_config = self.repo.config()?;
 
@@ -224,15 +208,45 @@ impl Repository {
 
         let mut credentials_state = CredentialsState::default();
         callbacks.credentials(|url, username_from_url, allowed_types| {
-            credentials_state.get(settings, &repo_config, url, username_from_url, allowed_types)
+            credentials_state.get(
+                settings,
+                &repo_config,
+                url,
+                username_from_url,
+                allowed_types,
+            )
         });
 
         remote.fetch(
             &[branch_name],
-            Some(&mut git2::FetchOptions::new().remote_callbacks(callbacks)),
+            Some(
+                &mut git2::FetchOptions::new()
+                    .remote_callbacks(callbacks)
+                    .download_tags(git2::AutotagOption::All)
+                    .update_fetchhead(true),
+            ),
             Some("multi-git: fetching"),
         )?;
         result?;
+
+        if !status.upstream.exists() {
+            return Err(crate::Error::from_message("no upstream branch"));
+        }
+
+        if status.working_tree.is_dirty() {
+            return Err(crate::Error::from_message(
+                "working tree has uncommitted changes",
+            ));
+        }
+
+        if !status.head.on_default_branch(settings) {
+            return Err(crate::Error::from_message("not on default branch"));
+        }
+
+        let fetch_head_ref = self.repo.find_reference(FETCH_HEAD_FILE)?;
+        let fetch_head = self.repo.reference_to_annotated_commit(&fetch_head_ref)?;
+
+        let merge_analysis = self.repo.merge_analysis(&[&fetch_head])?;
 
         Ok(())
     }
@@ -305,7 +319,12 @@ impl CredentialsState {
             if !self.tried_ssh_key_from_config {
                 self.tried_ssh_key_from_config = true;
                 if let Some(ssh) = &settings.ssh {
-                    return git2::Cred::ssh_key(username, ssh.public_key_path.as_deref(), &ssh.private_key_path, ssh.passphrase.as_deref());
+                    return git2::Cred::ssh_key(
+                        username,
+                        ssh.public_key_path.as_deref(),
+                        &ssh.private_key_path,
+                        ssh.passphrase.as_deref(),
+                    );
                 }
             }
 
