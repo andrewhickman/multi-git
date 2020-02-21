@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 use std::io::Write;
 
-use crossterm::style::Colorize;
+use crossterm::style::{Color, Colorize, ResetColor, SetForegroundColor};
 use structopt::StructOpt;
 
 use crate::config::Config;
 use crate::output::{self, Output};
 use crate::walk::{self, walk};
-use crate::{alias, cli};
+use crate::{alias, cli, git};
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Pull changes in your repos", no_version)]
@@ -35,7 +35,7 @@ pub fn run(
 fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<()> {
     log::debug!("pulling repo at `{}`", entry.relative_path.display());
 
-    let status = entry
+    let mut status = entry
         .repo
         .status()
         .map_err(|err| crate::Error::with_context(err, "failed to get repo status"))?;
@@ -47,7 +47,7 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
         write!(stdout, "{}", "downloading:".grey())?;
         Ok(())
     })?;
-    entry.repo.pull(&entry.settings, &status, |progress| {
+    let outcome = entry.repo.pull(&entry.settings, &mut status, |progress| {
         if state == FetchState::Downloading
             && progress.received_objects() == progress.total_objects()
         {
@@ -72,7 +72,19 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
     drop(bar);
 
     line.write(|stdout| {
-        write!(stdout, "{}", "pull successful".green())?;
+        crossterm::queue!(stdout, SetForegroundColor(Color::Green))?;
+        match outcome {
+            git::PullOutcome::UpToDate => {
+                write!(stdout, "branch `{}` is up to date", status.head.name)?
+            }
+            git::PullOutcome::CreatedUnborn => {
+                write!(stdout, "created branch `{}`", status.head.name)?
+            }
+            git::PullOutcome::FastForwarded => {
+                write!(stdout, "fast-forwarded branch `{}`", status.head.name)?
+            }
+        }
+        crossterm::queue!(stdout, ResetColor)?;
         Ok(())
     })
 }

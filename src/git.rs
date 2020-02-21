@@ -41,6 +41,12 @@ pub struct WorkingTreeStatus {
     pub index_changed: bool,
 }
 
+pub enum PullOutcome {
+    UpToDate,
+    CreatedUnborn,
+    FastForwarded,
+}
+
 impl Repository {
     pub fn try_open(path: &Path) -> crate::Result<Option<Self>> {
         match git2::Repository::open(path) {
@@ -176,9 +182,9 @@ impl Repository {
     pub fn pull<F>(
         &self,
         settings: &Settings,
-        status: &RepositoryStatus,
+        status: &mut RepositoryStatus,
         mut progress_callback: F,
-    ) -> crate::Result<()>
+    ) -> crate::Result<PullOutcome>
     where
         F: FnMut(git2::Progress) -> crate::Result<bool>,
     {
@@ -246,13 +252,77 @@ impl Repository {
         let fetch_head_ref = self.repo.find_reference(FETCH_HEAD_FILE)?;
         let fetch_head = self.repo.reference_to_annotated_commit(&fetch_head_ref)?;
 
-        let merge_analysis = self.repo.merge_analysis(&[&fetch_head])?;
+        let (merge_analysis, _) = self.repo.merge_analysis(&[&fetch_head])?;
 
+        if merge_analysis.is_up_to_date() {
+            Ok(PullOutcome::UpToDate)
+        } else if merge_analysis.is_unborn() {
+            self.create_unborn(status, fetch_head)?;
+            Ok(PullOutcome::CreatedUnborn)
+        } else if merge_analysis.is_fast_forward() {
+            self.fast_forward(status, fetch_head)?;
+            Ok(PullOutcome::FastForwarded)
+        } else {
+            Err(crate::Error::from_message("cannot fast-forward"))
+        }
+    }
+
+    fn create_unborn(
+        &self,
+        status: &RepositoryStatus<'_>,
+        fetch_commit: git2::AnnotatedCommit,
+    ) -> Result<(), git2::Error> {
+        debug_assert!(status.head.is_unborn());
+        let branch_name = format!("{}{}", REFS_HEADS_FILE, status.head.name);
+        let log_message = format!(
+            "multi-git: creating unborn branch {} at {}",
+            branch_name,
+            fetch_commit.id()
+        );
+        self.repo
+            .reference(&branch_name, fetch_commit.id(), false, &log_message)?;
+        self.repo.set_head(&branch_name)?;
+        self.repo.checkout_head(None)?;
+        Ok(())
+    }
+
+    fn fast_forward(
+        &self,
+        status: &mut RepositoryStatus<'_>,
+        fetch_commit: git2::AnnotatedCommit,
+    ) -> Result<(), git2::Error> {
+        let branch = status.head.unwrap_branch();
+
+        let log_message = format!(
+            "multi-git: fast-forwarding branch {} to {}",
+            branch.name_bytes()?.as_bstr(),
+            fetch_commit.id(),
+        );
+
+        branch
+            .get_mut()
+            .set_target(fetch_commit.id(), &log_message)?;
+        debug_assert!(branch.is_head());
+        self.repo.checkout_head(None)?;
         Ok(())
     }
 }
 
 impl<'repo> HeadStatus<'repo> {
+    fn is_unborn(&self) -> bool {
+        match self.kind {
+            HeadStatusKind::Unborn => true,
+            _ => false,
+        }
+    }
+
+    fn unwrap_branch(&mut self) -> &mut git2::Branch<'repo> {
+        match &mut self.kind {
+            HeadStatusKind::Branch { branch } => branch,
+            _ => panic!("expected HEAD to be on a branch"),
+        }
+    }
+
     pub fn on_default_branch(&self, settings: &Settings) -> bool {
         match &self.kind {
             HeadStatusKind::Branch { .. } | HeadStatusKind::Unborn => {
