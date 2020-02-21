@@ -94,10 +94,19 @@ impl SettingsMatcher {
 pub struct Settings {
     pub default_branch: Option<String>,
     pub default_remote: Option<String>,
+    pub ssh: Option<SshSettings>,
     pub editor: Option<String>,
     pub ignore: Option<bool>,
     #[serde(skip)]
     glob: String,
+}
+
+#[derive(Debug, Default, Deserialize, Clone)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct SshSettings {
+    pub passphrase: Option<String>,
+    pub public_key_path: Option<PathBuf>,
+    pub private_key_path: PathBuf,
 }
 
 impl Settings {
@@ -107,6 +116,9 @@ impl Settings {
         }
         if other.default_remote.is_some() {
             self.default_remote.clone_from(&other.default_remote);
+        }
+        if other.ssh.is_some() {
+            self.ssh.clone_from(&other.ssh);
         }
         if other.editor.is_some() {
             self.editor.clone_from(&other.editor);
