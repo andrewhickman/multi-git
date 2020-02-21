@@ -51,7 +51,7 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
         if state == FetchState::Downloading && progress.indexed_objects() != 0 {
             bar.finish()?;
             bar = line.write_progress(STATUS_COLS, |stdout| {
-                write!(stdout, "{}", "indexing:".grey())?;
+                write!(stdout, "{}", "indexing:   ".grey())?;
                 Ok(())
             })?;
             state = FetchState::Indexing;
