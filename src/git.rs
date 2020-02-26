@@ -6,7 +6,6 @@ use bstr::{BString, ByteSlice};
 use crate::config::Settings;
 
 const HEAD_FILE: &str = "HEAD";
-const FETCH_HEAD_FILE: &str = "FETCH_HEAD";
 const REFS_HEADS_FILE: &str = "refs/heads/";
 
 pub struct Repository {
@@ -249,8 +248,18 @@ impl Repository {
             return Err(crate::Error::from_message("not on default branch"));
         }
 
-        let fetch_head_ref = self.repo.find_reference(FETCH_HEAD_FILE)?;
-        let fetch_head = self.repo.reference_to_annotated_commit(&fetch_head_ref)?;
+        let upstream_oid = status
+            .head
+            .unwrap_branch()
+            .upstream()?
+            .into_reference()
+            .target()
+            .expect("branch is not direct reference");
+        let fetch_head = self.repo.fetchhead_to_annotated_commit(
+            branch_name,
+            remote.url().expect("remote url is invalid utf-8"),
+            &upstream_oid,
+        )?;
 
         let (merge_analysis, _) = self.repo.merge_analysis(&[&fetch_head])?;
 
@@ -282,7 +291,11 @@ impl Repository {
         self.repo
             .reference(&branch_name, fetch_commit.id(), false, &log_message)?;
         self.repo.set_head(&branch_name)?;
-        self.repo.checkout_head(None)?;
+        self.repo.checkout_head(Some(
+            &mut git2::build::CheckoutBuilder::new()
+                .force()
+                .remove_untracked(true),
+        ))?;
         Ok(())
     }
 
@@ -303,7 +316,11 @@ impl Repository {
             .get_mut()
             .set_target(fetch_commit.id(), &log_message)?;
         debug_assert!(branch.is_head());
-        self.repo.checkout_head(None)?;
+        self.repo.checkout_head(Some(
+            &mut git2::build::CheckoutBuilder::new()
+                .force()
+                .remove_untracked(true),
+        ))?;
         Ok(())
     }
 }

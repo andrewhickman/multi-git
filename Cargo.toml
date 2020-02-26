@@ -15,7 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 crossterm = "0.16.0"
-git2 = { git = "https://github.com/andrewhickman/git2-rs.git" }
+git2 = { git = "https://github.com/andrewhickman/git2-rs.git", branch = "annotated-commit-from-fetch-head" }
 rayon = "1.3.0"
 serde = { version = "1.0.104", features = ["derive"] }
 toml = "0.5.6"
