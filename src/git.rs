@@ -149,7 +149,9 @@ impl Repository {
 
     fn working_tree_status(&self) -> Result<WorkingTreeStatus, git2::Error> {
         let statuses = self.repo.statuses(Some(
-            &mut git2::StatusOptions::new().exclude_submodules(true),
+            &mut git2::StatusOptions::new()
+                .exclude_submodules(true)
+                .include_ignored(false),
         ))?;
 
         let mut result = WorkingTreeStatus {
@@ -166,7 +168,8 @@ impl Repository {
             | git2::Status::INDEX_MODIFIED
             | git2::Status::INDEX_DELETED
             | git2::Status::INDEX_RENAMED
-            | git2::Status::INDEX_TYPECHANGE;
+            | git2::Status::INDEX_TYPECHANGE
+            | git2::Status::CONFLICTED;
 
         for entry in statuses.iter() {
             let status = entry.status();
