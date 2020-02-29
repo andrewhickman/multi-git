@@ -12,7 +12,7 @@ use crate::{alias, cli, git};
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Pull changes in your repos", no_version)]
 pub struct PullArgs {
-    #[structopt(name = "TARGET", help = "the path or alias of the repo to pull")]
+    #[structopt(value_name = "TARGET", help = "the path or alias of the repo to pull")]
     target: Option<String>,
 }
 

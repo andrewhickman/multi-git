@@ -7,6 +7,7 @@ mod git;
 mod output;
 mod progress;
 mod pull;
+mod resolve;
 mod status;
 mod walk;
 
@@ -38,5 +39,6 @@ fn run(out: &Output, args: &cli::Args) -> Result<()> {
         cli::Command::Edit(edit_args) => edit::run(out, args, edit_args, &config),
         cli::Command::Status(status_args) => status::run(out, &args, status_args, &config),
         cli::Command::Pull(pull_args) => pull::run(out, &args, pull_args, &config),
+        cli::Command::Resolve(resolve_args) => resolve::run(out, &args, resolve_args, &config),
     }
 }

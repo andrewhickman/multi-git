@@ -10,7 +10,7 @@ use crate::{alias, cli, config, git};
 #[structopt(about = "Open a repo in an editor", no_version)]
 pub struct EditArgs {
     #[structopt(
-        name = "TARGET",
+        value_name = "TARGET",
         help = "the path or alias of the repo to edit",
         required_unless = "config"
     )]
@@ -23,7 +23,7 @@ pub struct EditArgs {
         long,
         short,
         help = "Edit the config file",
-        conflicts_with = "name",
+        conflicts_with = "target",
         conflicts_with = "branch",
         conflicts_with = "editor"
     )]

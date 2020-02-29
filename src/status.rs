@@ -15,7 +15,7 @@ use crate::{alias, cli, git};
 #[structopt(about = "Show the status of your repos", no_version)]
 pub struct StatusArgs {
     #[structopt(
-        name = "TARGET",
+        value_name = "TARGET",
         help = "the path or alias of the repo to get status for"
     )]
     target: Option<String>,

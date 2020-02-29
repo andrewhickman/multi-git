@@ -1,7 +1,7 @@
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
-use crate::{edit, pull, status};
+use crate::{edit, pull, resolve, status};
 
 pub fn parse_args() -> Args {
     Args::from_args()
@@ -32,4 +32,6 @@ pub enum Command {
     Status(status::StatusArgs),
     #[structopt(name = "pull", no_version)]
     Pull(pull::PullArgs),
+    #[structopt(name = "resolve", no_version)]
+    Resolve(resolve::ResolveArgs),
 }
