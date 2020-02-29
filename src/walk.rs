@@ -18,7 +18,12 @@ where
     F: Fn(output::Line, &Entry) -> Result<(), Error> + Sync,
 {
     match git::Repository::try_open(path) {
-        Ok(Some(repo)) => visit_repos(out, path, &mut [Entry::new(config, path, repo)], &visit),
+        Ok(Some(repo)) => visit_repos(
+            out,
+            path,
+            &mut [Entry::from_path(config, path, repo)],
+            &visit,
+        ),
         Ok(None) => walk_inner(out, config, path, &visit),
         Err(err) => out.write_error(&err.into()),
     }
@@ -45,12 +50,18 @@ where
         match entry {
             Ok(entry) => {
                 let sub_path = entry.path();
+                let relative_path = config.get_relative_path(&sub_path);
+                let settings = config.settings(relative_path);
+
+                if settings.ignore == Some(true) {
+                    continue;
+                }
 
                 match entry.file_type() {
                     Ok(file_type) if file_type.is_dir() => {
                         match git::Repository::try_open(&sub_path) {
                             Ok(Some(repo)) => {
-                                repos.push(Entry::new(config, &sub_path, repo));
+                                repos.push(Entry::new(relative_path.to_owned(), repo, settings));
                             }
                             Ok(None) => {
                                 subdirectories.push(sub_path);
@@ -110,13 +121,17 @@ where
 }
 
 impl Entry {
-    fn new(config: &Config, path: &Path, repo: git::Repository) -> Self {
-        let relative_path = config.get_relative_path(path).to_owned();
-        let settings = config.settings(&relative_path);
+    fn new(relative_path: PathBuf, repo: git::Repository, settings: Settings) -> Self {
         Entry {
             relative_path,
             settings,
             repo,
         }
+    }
+
+    fn from_path(config: &Config, path: &Path, repo: git::Repository) -> Self {
+        let relative_path = config.get_relative_path(path).to_owned();
+        let settings = config.settings(&relative_path);
+        Entry::new(relative_path, repo, settings)
     }
 }
