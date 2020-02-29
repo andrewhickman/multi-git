@@ -4,7 +4,7 @@ use structopt::StructOpt;
 
 use crate::config::Config;
 use crate::output::Output;
-use crate::{alias, cli, config};
+use crate::{alias, cli, config, git};
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Open a repo in an editor", no_version)]
@@ -17,7 +17,16 @@ pub struct EditArgs {
     target: Option<String>,
     #[structopt(long, short, help = "override the editor program")]
     editor: Option<String>,
-    #[structopt(long, help = "Edit the config file", conflicts_with = "name")]
+    #[structopt(long, short, help = "create a new branch")]
+    branch: Option<String>,
+    #[structopt(
+        long,
+        short,
+        help = "Edit the config file",
+        conflicts_with = "name",
+        conflicts_with = "branch",
+        conflicts_with = "editor"
+    )]
     config: bool,
 }
 
@@ -54,6 +63,11 @@ pub fn run(
             ))
         }
     };
+
+    if let Some(branch_name) = &edit_args.branch {
+        let repo = git::Repository::open(&path)?;
+        repo.create_branch(&settings, branch_name)?;
+    }
 
     let mut command = shell();
     command.arg(editor).arg(&path);

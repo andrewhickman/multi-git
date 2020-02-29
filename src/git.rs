@@ -47,6 +47,12 @@ pub enum PullOutcome {
 }
 
 impl Repository {
+    pub fn open(path: &Path) -> crate::Result<Self> {
+        let repo = git2::Repository::open(path)?;
+        log::debug!("opened repo at `{}`", path.display());
+        Ok(Repository { repo })
+    }
+
     pub fn try_open(path: &Path) -> crate::Result<Option<Self>> {
         match git2::Repository::open(path) {
             Ok(repo) => {
@@ -319,6 +325,35 @@ impl Repository {
             .get_mut()
             .set_target(fetch_commit.id(), &log_message)?;
         debug_assert!(branch.is_head());
+        self.repo.checkout_head(Some(
+            &mut git2::build::CheckoutBuilder::new()
+                .force()
+                .remove_untracked(true),
+        ))?;
+        Ok(())
+    }
+
+    pub fn create_branch(&self, settings: &Settings, name: &str) -> crate::Result<()> {
+        let commit = match &settings.default_branch {
+            Some(default_branch) => self
+                .repo
+                .find_branch(default_branch, git2::BranchType::Local)?
+                .get()
+                .peel_to_commit()?,
+            None => self.repo.head()?.peel_to_commit()?,
+        };
+
+        let working_tree_status = self.working_tree_status()?;
+        if working_tree_status.is_dirty() {
+            return Err(crate::Error::from_message(
+                "working tree has uncommitted changes",
+            ));
+        }
+
+        self.repo.branch(name, &commit, false)?;
+        let ref_name = format!("{}{}", REFS_HEADS_FILE, name);
+
+        self.repo.set_head(&ref_name)?;
         self.repo.checkout_head(Some(
             &mut git2::build::CheckoutBuilder::new()
                 .force()
