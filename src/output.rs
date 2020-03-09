@@ -179,7 +179,11 @@ impl<'out, 'block> Line<'out, 'block> {
         self.write(|stdout| err.write(stdout)).ok();
     }
 
-    pub fn write_progress<F>(&self, status_cols: u16, write_status: F) -> crate::Result<ProgressBar>
+    pub fn write_progress<F>(
+        &self,
+        status_cols: u16,
+        write_status: F,
+    ) -> crate::Result<ProgressBar<'out, 'block>>
     where
         F: FnOnce(&mut io::StdoutLock<'out>) -> crate::Result<()>,
     {

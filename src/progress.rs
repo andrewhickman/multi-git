@@ -34,7 +34,8 @@ impl<'out, 'block> ProgressBar<'out, 'block> {
                 PrintStyledContent("]".dim())
             )?;
             Ok(())
-        })
+        })?;
+        self.set(0.0)
     }
 
     pub fn set(&self, progress: f64) -> crate::Result<()> {
@@ -51,7 +52,7 @@ impl<'out, 'block> ProgressBar<'out, 'block> {
         })
     }
 
-    pub fn finish(&mut self) -> crate::Result<()> {
+    pub fn finish(&mut self) -> crate::Result<output::Line<'out, 'block>> {
         self.line.write(|stdout| {
             crossterm::queue!(
                 stdout,
@@ -61,7 +62,7 @@ impl<'out, 'block> ProgressBar<'out, 'block> {
             Ok(())
         })?;
         self.finished = true;
-        Ok(())
+        Ok(self.line)
     }
 }
 

@@ -7,7 +7,7 @@ use structopt::StructOpt;
 use crate::config::Config;
 use crate::output::{self, Output};
 use crate::walk::{self, walk};
-use crate::{alias, cli, git};
+use crate::{alias, cli, git, progress};
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Pull changes in your repos", no_version)]
@@ -40,36 +40,13 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
         .status()
         .map_err(|err| crate::Error::with_context(err, "failed to get repo status"))?;
 
-    const STATUS_COLS: u16 = 13;
-
-    let mut state = FetchState::Downloading;
-    let mut bar = line.write_progress(STATUS_COLS, |stdout| {
-        write!(stdout, "{}", "downloading:".grey())?;
-        Ok(())
-    })?;
-    let outcome = entry.repo.pull(&entry.settings, &mut status, |progress| {
-        if state == FetchState::Downloading
-            && progress.received_objects() == progress.total_objects()
-        {
-            bar.finish()?;
-            bar = line.write_progress(STATUS_COLS, |stdout| {
-                write!(stdout, "{}", "indexing:   ".grey())?;
-                Ok(())
-            })?;
-            state = FetchState::Indexing;
-        }
-
-        match state {
-            FetchState::Downloading => {
-                bar.set(progress.received_objects() as f64 / progress.total_objects() as f64)?
-            }
-            FetchState::Indexing => {
-                bar.set(progress.indexed_objects() as f64 / progress.total_objects() as f64)?
-            }
-        }
-        Ok(true)
-    })?;
-    drop(bar);
+    let mut fetch_state = FetchState::Pending(line);
+    let outcome = entry
+        .repo
+        .pull(&entry.settings, &mut status, move |progress| {
+            fetch_state.tick(progress)?;
+            Ok(true)
+        })?;
 
     line.write(|stdout| {
         crossterm::queue!(stdout, SetForegroundColor(Color::Green))?;
@@ -89,8 +66,40 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
     })
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum FetchState {
-    Downloading,
-    Indexing,
+#[derive(Clone, Debug)]
+enum FetchState<'out, 'block> {
+    Pending(output::Line<'out, 'block>),
+    Downloading(progress::ProgressBar<'out, 'block>),
+    Indexing(progress::ProgressBar<'out, 'block>),
+}
+
+impl<'out, 'block> FetchState<'out, 'block> {
+    fn tick(&mut self, progress: git2::Progress<'_>) -> crate::Result<()> {
+        const STATUS_COLS: u16 = 13;
+
+        match *self {
+            FetchState::Pending(ref line) => {
+                *self = FetchState::Downloading(line.write_progress(STATUS_COLS, |stdout| {
+                    write!(stdout, "{}", "downloading:".grey())?;
+                    Ok(())
+                })?);
+            }
+            FetchState::Downloading(ref bar)
+                if progress.received_objects() != progress.total_objects() =>
+            {
+                bar.set(progress.received_objects() as f64 / progress.total_objects() as f64)?;
+            }
+            FetchState::Downloading(ref mut bar) => {
+                let line = bar.finish()?;
+                *self = FetchState::Indexing(line.write_progress(STATUS_COLS, |stdout| {
+                    write!(stdout, "{}", "indexing:   ".grey())?;
+                    Ok(())
+                })?);
+            }
+            FetchState::Indexing(ref bar) => {
+                bar.set(progress.indexed_objects() as f64 / progress.total_objects() as f64)?
+            }
+        };
+        Ok(())
+    }
 }
