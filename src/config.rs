@@ -97,6 +97,7 @@ pub struct Settings {
     pub ssh: Option<SshSettings>,
     pub editor: Option<String>,
     pub ignore: Option<bool>,
+    pub prune: Option<bool>,
     #[serde(skip)]
     glob: String,
 }
@@ -125,6 +126,9 @@ impl Settings {
         }
         if other.ignore.is_some() {
             self.ignore.clone_from(&other.ignore);
+        }
+        if other.prune.is_some() {
+            self.prune.clone_from(&other.prune);
         }
     }
 }

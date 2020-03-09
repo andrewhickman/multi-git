@@ -231,13 +231,20 @@ impl Repository {
             )
         });
 
+        let prune = match settings.prune {
+            None => git2::FetchPrune::Unspecified,
+            Some(false) => git2::FetchPrune::Off,
+            Some(true) => git2::FetchPrune::On,
+        };
+
         remote.fetch(
             &[branch_name],
             Some(
                 &mut git2::FetchOptions::new()
                     .remote_callbacks(callbacks)
                     .download_tags(git2::AutotagOption::All)
-                    .update_fetchhead(true),
+                    .update_fetchhead(true)
+                    .prune(prune),
             ),
             Some("multi-git: fetching"),
         )?;
