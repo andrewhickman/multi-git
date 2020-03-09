@@ -3,7 +3,7 @@ use crate::output;
 use std::io::Write;
 
 use crossterm::cursor::MoveRight;
-use crossterm::style::{Attribute, PrintStyledContent, SetAttribute, Styler};
+use crossterm::style::{Attribute, SetAttribute};
 use crossterm::terminal::{Clear, ClearType};
 
 #[derive(Clone, Debug)]
@@ -29,10 +29,14 @@ impl<'out, 'block> ProgressBar<'out, 'block> {
             crossterm::queue!(
                 stdout,
                 MoveRight(self.status_cols),
-                PrintStyledContent("[".dim()),
-                MoveRight(self.bar_cols),
-                PrintStyledContent("]".dim())
+                SetAttribute(Attribute::Dim),
             )?;
+            write!(stdout, "[")?;
+            stdout.flush()?;
+            crossterm::queue!(stdout, MoveRight(self.bar_cols))?;
+            write!(stdout, "[")?;
+            stdout.flush()?;
+            crossterm::queue!(stdout, SetAttribute(Attribute::Reset))?;
             Ok(())
         })?;
         self.set(0.0)

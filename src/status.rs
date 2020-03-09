@@ -1,9 +1,7 @@
 use std::borrow::Cow;
 use std::io::Write;
 
-use crossterm::style::{
-    Attribute, Color, Colorize, ResetColor, SetAttribute, SetForegroundColor, Styler,
-};
+use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use structopt::StructOpt;
 
 use crate::config::Config;
@@ -68,12 +66,21 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
         };
         crossterm::queue!(stdout, SetForegroundColor(color))?;
         write!(stdout, "{:>8} ", text)?;
+        stdout.flush()?;
         crossterm::queue!(stdout, ResetColor)?;
 
         if status.working_tree.working_changed {
-            write!(stdout, "{}", "! ".red().bold())?;
+            crossterm::queue!(
+                stdout,
+                SetForegroundColor(Color::Red),
+                SetAttribute(Attribute::Bold)
+            )?;
+            write!(stdout, "! ")?;
+            crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
         } else if status.working_tree.index_changed {
-            write!(stdout, "{}", "~ ".cyan())?;
+            crossterm::queue!(stdout, SetForegroundColor(Color::Cyan),)?;
+            write!(stdout, "~ ")?;
+            crossterm::queue!(stdout, ResetColor)?;
         } else {
             write!(stdout, "  ")?;
         }
@@ -83,6 +90,7 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
             crossterm::queue!(stdout, SetAttribute(Attribute::Bold))?;
         }
         write!(stdout, "{}", status.head)?;
+        stdout.flush()?;
         crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
 
         Ok(())

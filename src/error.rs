@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::{fmt, io};
 
-use crossterm::style::{Colorize, Styler};
+use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -18,7 +18,16 @@ struct Context {
 
 impl Error {
     pub fn write(&self, stdout: &mut io::StdoutLock) -> Result<()> {
-        write!(stdout, "{}{}", "error: ".red().bold(), self)?;
+        crossterm::queue!(
+            stdout,
+            SetForegroundColor(Color::Red),
+            SetAttribute(Attribute::Bold)
+        )?;
+        write!(stdout, "error: ")?;
+        stdout.flush()?;
+        crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
+
+        write!(stdout, "{}", self)?;
         let mut err = self as &dyn std::error::Error;
         while let Some(source) = err.source() {
             write!(stdout, ": {}", source)?;

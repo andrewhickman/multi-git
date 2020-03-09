@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::io::Write;
 
-use crossterm::style::{Color, Colorize, ResetColor, SetForegroundColor};
+use crossterm::style::{Color, ResetColor, SetForegroundColor};
 use structopt::StructOpt;
 
 use crate::config::Config;
@@ -80,7 +80,9 @@ impl<'out, 'block> FetchState<'out, 'block> {
         match *self {
             FetchState::Pending(ref line) => {
                 *self = FetchState::Downloading(line.write_progress(STATUS_COLS, |stdout| {
-                    write!(stdout, "{}", "downloading:".grey())?;
+                    crossterm::queue!(stdout, SetForegroundColor(Color::Grey))?;
+                    write!(stdout, "{}", "downloading:")?;
+                    crossterm::queue!(stdout, ResetColor)?;
                     Ok(())
                 })?);
             }
@@ -92,7 +94,9 @@ impl<'out, 'block> FetchState<'out, 'block> {
             FetchState::Downloading(ref mut bar) => {
                 let line = bar.finish()?;
                 *self = FetchState::Indexing(line.write_progress(STATUS_COLS, |stdout| {
-                    write!(stdout, "{}", "indexing:   ".grey())?;
+                    crossterm::queue!(stdout, SetForegroundColor(Color::Grey))?;
+                    write!(stdout, "{}", "indexing:   ")?;
+                    crossterm::queue!(stdout, ResetColor)?;
                     Ok(())
                 })?);
             }

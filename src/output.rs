@@ -4,7 +4,7 @@ use std::io::{self, Write as _};
 use std::sync::Mutex;
 
 use crossterm::cursor::{self, MoveDown, MoveToColumn, MoveUp};
-use crossterm::style::{style, Colorize, Styler};
+use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 
 use crate::progress::ProgressBar;
 
@@ -75,7 +75,15 @@ impl Output {
         let mut stdout = self.stdout.lock();
 
         crossterm::queue!(stdout, cursor::Hide, cursor::DisableBlinking)?;
-        writeln!(stdout, "{}", style(&title).yellow().underlined())?;
+
+        crossterm::queue!(
+            stdout,
+            SetForegroundColor(Color::Yellow),
+            SetAttribute(Attribute::Underlined)
+        )?;
+        writeln!(stdout, "{}", &title)?;
+        stdout.flush()?;
+        crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
 
         let (cols, _) = crossterm::terminal::size()?;
 
