@@ -51,14 +51,14 @@ fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<
     line.write(|stdout| {
         crossterm::queue!(stdout, SetForegroundColor(Color::Green))?;
         match outcome {
-            git::PullOutcome::UpToDate => {
-                write!(stdout, "branch `{}` is up to date", status.head.name)?
+            git::PullOutcome::UpToDate(branch) => {
+                write!(stdout, "branch `{}` is up to date", branch)?
             }
-            git::PullOutcome::CreatedUnborn => {
-                write!(stdout, "created branch `{}`", status.head.name)?
+            git::PullOutcome::CreatedUnborn(branch) => {
+                write!(stdout, "created branch `{}`", branch)?
             }
-            git::PullOutcome::FastForwarded => {
-                write!(stdout, "fast-forwarded branch `{}`", status.head.name)?
+            git::PullOutcome::FastForwarded(branch) => {
+                write!(stdout, "fast-forwarded branch `{}`", branch)?
             }
         }
         crossterm::queue!(stdout, ResetColor)?;

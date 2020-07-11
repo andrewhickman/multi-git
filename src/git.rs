@@ -41,9 +41,9 @@ pub struct WorkingTreeStatus {
 }
 
 pub enum PullOutcome {
-    UpToDate,
-    CreatedUnborn,
-    FastForwarded,
+    UpToDate(String),
+    CreatedUnborn(String),
+    FastForwarded(String),
 }
 
 impl Repository {
@@ -261,7 +261,7 @@ impl Repository {
         }
 
         if !status.head.on_default_branch(settings) {
-            return Err(crate::Error::from_message("not on default branch"));
+            self.checkout(&format!("{}{}", REFS_HEADS_FILE, branch_name))?;
         }
 
         let upstream_oid = status
@@ -280,13 +280,13 @@ impl Repository {
         let (merge_analysis, _) = self.repo.merge_analysis(&[&fetch_head])?;
 
         if merge_analysis.is_up_to_date() {
-            Ok(PullOutcome::UpToDate)
+            Ok(PullOutcome::UpToDate(branch_name.clone()))
         } else if merge_analysis.is_unborn() {
             self.create_unborn(status, fetch_head)?;
-            Ok(PullOutcome::CreatedUnborn)
+            Ok(PullOutcome::CreatedUnborn(branch_name.clone()))
         } else if merge_analysis.is_fast_forward() {
             self.fast_forward(status, fetch_head)?;
-            Ok(PullOutcome::FastForwarded)
+            Ok(PullOutcome::FastForwarded(branch_name.clone()))
         } else {
             Err(crate::Error::from_message("cannot fast-forward"))
         }
@@ -306,12 +306,7 @@ impl Repository {
         );
         self.repo
             .reference(&branch_name, fetch_commit.id(), false, &log_message)?;
-        self.repo.set_head(&branch_name)?;
-        self.repo.checkout_head(Some(
-            &mut git2::build::CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true),
-        ))?;
+        self.checkout(&branch_name)?;
         Ok(())
     }
 
@@ -359,7 +354,11 @@ impl Repository {
 
         self.repo.branch(name, &commit, false)?;
         let ref_name = format!("{}{}", REFS_HEADS_FILE, name);
+        self.checkout(&ref_name)?;
+        Ok(())
+    }
 
+    fn checkout(&self, ref_name: &str) -> Result<(), git2::Error> {
         self.repo.set_head(&ref_name)?;
         self.repo.checkout_head(Some(
             &mut git2::build::CheckoutBuilder::new()
