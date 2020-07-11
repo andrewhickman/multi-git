@@ -34,7 +34,7 @@ impl<'out, 'block> ProgressBar<'out, 'block> {
             write!(stdout, "[")?;
             stdout.flush()?;
             crossterm::queue!(stdout, MoveRight(self.bar_cols))?;
-            write!(stdout, "[")?;
+            write!(stdout, "]")?;
             stdout.flush()?;
             crossterm::queue!(stdout, SetAttribute(Attribute::Reset))?;
             Ok(())
