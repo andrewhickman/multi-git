@@ -1,9 +1,7 @@
-use std::cmp::Ordering;
 use std::fmt::{Display, Write as _};
 use std::io::{self, Write as _};
-use std::sync::Mutex;
 
-use crossterm::cursor::{self, MoveDown, MoveToColumn, MoveUp};
+use crossterm::cursor::{self, MoveTo, MoveToColumn};
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 
 use crate::progress::ProgressBar;
@@ -19,18 +17,13 @@ pub struct Block<'out> {
     len: u16,
     padding_cols: u16,
     remaining_cols: u16,
-    inner: Mutex<BlockInner>,
-}
-
-#[derive(Debug)]
-struct BlockInner {
-    row: u16,
+    row: i16,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Line<'out, 'block> {
     block: &'block Block<'out>,
-    row: u16,
+    index: u16,
     cols: u16,
 }
 
@@ -98,63 +91,63 @@ impl Output {
             len += 1;
         }
 
+        let (_, row) = crossterm::cursor::position()?;
+
         Ok(Block {
             stdout: &self.stdout,
             len,
             padding_cols: padding,
             remaining_cols: cols.saturating_sub(padding),
-            inner: Mutex::new(BlockInner { row: len }),
+            row: row as i16 - len as i16,
         })
     }
 }
 
 impl<'out> Block<'out> {
-    pub fn line<'block>(&'block self, row: u16) -> Line<'out, 'block>
+    pub fn line<'block>(&'block self, index: u16) -> Line<'out, 'block>
     where
         'out: 'block,
     {
         Line {
             block: self,
-            row,
+            index,
             cols: self.remaining_cols,
         }
     }
 }
 
 impl<'out> Block<'out> {
-    fn write<F>(&self, row: u16, write: F) -> crate::Result<()>
+    fn write<F>(&self, index: u16, write: F) -> crate::Result<()>
     where
         F: FnOnce(&mut io::StdoutLock<'out>) -> crate::Result<()>,
     {
         let mut stdout = self.stdout.lock();
-        let mut inner = self.inner.lock().unwrap();
 
-        inner.move_to_row(&mut stdout, row)?;
-        inner.move_to_col(&mut stdout, self.padding_cols)?;
-        write(&mut stdout)?;
-        stdout.flush()?;
+        if self.move_to_row(&mut stdout, index)? {
+            self.move_to_col(&mut stdout, self.padding_cols)?;
+            write(&mut stdout)?;
+            stdout.flush()?;
+        }
 
         Ok(())
     }
-}
 
-impl BlockInner {
-    fn move_to_col(&mut self, stdout: &mut io::StdoutLock, col: u16) -> crate::Result<()> {
+    fn move_to_col(&self, stdout: &mut io::StdoutLock, col: u16) -> crate::Result<()> {
         crossterm::queue!(stdout, MoveToColumn(col))?;
         Ok(())
     }
 
-    fn move_to_row(&mut self, stdout: &mut io::StdoutLock, row: u16) -> crate::Result<()> {
-        match Ord::cmp(&self.row, &row) {
-            Ordering::Greater => crossterm::queue!(stdout, MoveUp(self.row - row))?,
-            Ordering::Equal => (),
-            Ordering::Less => crossterm::queue!(stdout, MoveDown(row - self.row))?,
+    fn move_to_row(&self, stdout: &mut io::StdoutLock, index: u16) -> crate::Result<bool> {
+        let row = self.row + index as i16;
+        if row >= 0 {
+            crossterm::queue!(stdout, MoveTo(0, row as u16))?;
+            Ok(true)
+        } else {
+            Ok(false)
         }
-        self.row = row;
-        Ok(())
     }
 
-    fn finish(&mut self, stdout: &mut io::StdoutLock, len: u16) -> crate::Result<()> {
+    fn finish(&self, stdout: &mut io::StdoutLock, len: u16) -> crate::Result<()> {
         self.move_to_row(stdout, len)?;
         crossterm::queue!(
             stdout,
@@ -170,8 +163,7 @@ impl BlockInner {
 impl<'out> Drop for Block<'out> {
     fn drop(&mut self) {
         let mut stdout = self.stdout.lock();
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        inner.finish(&mut stdout, self.len).ok();
+        self.finish(&mut stdout, self.len).ok();
     }
 }
 
@@ -180,7 +172,7 @@ impl<'out, 'block> Line<'out, 'block> {
     where
         F: FnOnce(&mut io::StdoutLock<'out>) -> crate::Result<()>,
     {
-        self.block.write(self.row, write)
+        self.block.write(self.index, write)
     }
 
     pub fn write_error(&self, err: &crate::Error) {
