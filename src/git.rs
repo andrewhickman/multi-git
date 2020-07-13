@@ -261,7 +261,7 @@ impl Repository {
         }
 
         if !status.head.on_default_branch(settings) {
-            self.checkout(&format!("{}{}", REFS_HEADS_FILE, branch_name))?;
+            return Err(crate::Error::from_message("not on default branch"));
         }
 
         let upstream_oid = status
