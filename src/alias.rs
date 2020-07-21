@@ -10,13 +10,6 @@ use crate::cli;
 use crate::config::Config;
 
 pub fn resolve(name: &str, args: &cli::Args, config: &Config) -> crate::Result<PathBuf> {
-    if !config.root.exists() {
-        return Err(crate::Error::from_message(format!(
-            "root path `{}` in config is invalid",
-            config.root.display()
-        )));
-    }
-
     if let Some(path) = resolve_prefix(&config.aliases, name, args)? {
         let full_path = config.root.join(path);
         log::trace!("resolved alias `{}` to `{}`", name, full_path.display());

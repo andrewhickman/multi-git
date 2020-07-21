@@ -21,7 +21,13 @@ pub struct Config {
 
 pub fn parse() -> crate::Result<Config> {
     match file_path() {
-        Some(path) => parse_file(path),
+        Some(path) => {
+            let config = parse_file(path)?;
+            config
+                .validate()
+                .map_err(|err| crate::Error::with_context(err, "invalid config"))?;
+            Ok(config)
+        }
         None => Config::default(),
     }
 }
@@ -68,6 +74,17 @@ impl Config {
             settings: SettingsMatcher::default(),
             default_settings: Settings::default(),
         })
+    }
+
+    fn validate(&self) -> crate::Result<()> {
+        if !self.root.exists() {
+            return Err(crate::Error::from_message(format!(
+                "root path `{}` is invalid",
+                self.root.display()
+            )));
+        }
+
+        Ok(())
     }
 }
 
