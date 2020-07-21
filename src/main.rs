@@ -19,6 +19,7 @@ use crate::output::Output;
 
 fn main() {
     human_panic::setup_panic!();
+    walk::init_thread_pool();
 
     let args = cli::parse_args();
     log::trace!("{:#?}", args);

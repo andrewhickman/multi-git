@@ -13,6 +13,13 @@ pub struct Entry {
     pub settings: Settings,
 }
 
+pub fn init_thread_pool() {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus::get() * 2)
+        .build_global()
+        .unwrap()
+}
+
 pub fn walk<F>(out: &Output, config: &Config, path: &Path, visit: F)
 where
     F: Fn(output::Line, &Entry) -> Result<(), Error> + Sync,
