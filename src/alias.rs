@@ -109,7 +109,7 @@ fn best_suggestions<T>(mut result: Vec<(f64, T)>) -> impl Iterator<Item = T> {
     const MAX: usize = 4;
 
     result.sort_by(|&(l, _), &(r, _)| l.partial_cmp(&r).unwrap_or(cmp::Ordering::Less));
-    result.into_iter().map(|(_, value)| value).take(MAX)
+    result.into_iter().rev().map(|(_, value)| value).take(MAX)
 }
 
 fn suggest_aliases<'a>(name: &str, config: &'a Config) -> Vec<(f64, &'a str)> {
