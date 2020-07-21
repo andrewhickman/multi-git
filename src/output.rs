@@ -67,6 +67,7 @@ impl Output {
     {
         let mut stdout = self.stdout.lock();
 
+        crossterm::terminal::enable_raw_mode()?;
         crossterm::queue!(stdout, cursor::Hide, cursor::DisableBlinking)?;
 
         crossterm::queue!(
@@ -155,6 +156,7 @@ impl<'out> Block<'out> {
             cursor::Show,
             cursor::EnableBlinking
         )?;
+        crossterm::terminal::disable_raw_mode()?;
         stdout.flush()?;
         Ok(())
     }
