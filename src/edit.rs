@@ -24,8 +24,7 @@ pub struct EditArgs {
         short,
         help = "Edit the config file",
         conflicts_with = "target",
-        conflicts_with = "branch",
-        conflicts_with = "editor"
+        conflicts_with = "branch"
     )]
     config: bool,
 }
