@@ -37,7 +37,7 @@ fn run(out: &Output, args: &cli::Args) -> Result<()> {
     log::trace!("{:#?}", config);
 
     match &args.command {
-        cli::Command::Edit(edit_args) => edit::run(out, args, edit_args, &config),
+        cli::Command::Edit(edit_args) => edit::run(args, edit_args, &config),
         cli::Command::Status(status_args) => status::run(out, &args, status_args, &config),
         cli::Command::Pull(pull_args) => pull::run(out, &args, pull_args, &config),
         cli::Command::Resolve(resolve_args) => resolve::run(out, &args, resolve_args, &config),

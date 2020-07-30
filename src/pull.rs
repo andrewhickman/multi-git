@@ -1,13 +1,18 @@
 use std::borrow::Cow;
-use std::io::Write;
+use std::io::{self, Write as _};
+use std::path::PathBuf;
+use std::sync::Mutex;
 
+use crossterm::cursor;
 use crossterm::style::{Color, ResetColor, SetForegroundColor};
+use crossterm::terminal::{self, Clear, ClearType};
 use structopt::StructOpt;
 
 use crate::config::Config;
-use crate::output::{self, Output};
+use crate::output::{self, LineContent, Output};
+use crate::progress::ProgressBar;
 use crate::walk::{self, walk};
-use crate::{alias, cli, git, progress};
+use crate::{alias, cli, git};
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Pull changes in your repos", no_version)]
@@ -28,82 +33,148 @@ pub fn run(
         Cow::Borrowed(&config.root)
     };
 
-    walk(out, config, &root, visit_repo);
-    Ok(())
+    walk(
+        out,
+        config,
+        &root,
+        PullLineContent::build,
+        PullLineContent::update,
+    )
 }
 
-fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<()> {
-    log::debug!("pulling repo at `{}`", entry.relative_path.display());
-
-    let mut status = entry
-        .repo
-        .status()
-        .map_err(|err| crate::Error::with_context(err, "failed to get repo status"))?;
-
-    let mut fetch_state = FetchState::Pending(line);
-    let outcome = entry
-        .repo
-        .pull(&entry.settings, &mut status, move |progress| {
-            fetch_state.tick(progress)?;
-            Ok(true)
-        })?;
-
-    line.write(|stdout| {
-        crossterm::queue!(stdout, SetForegroundColor(Color::Green))?;
-        match outcome {
-            git::PullOutcome::UpToDate(branch) => {
-                write!(stdout, "branch `{}` is up to date", branch)?
-            }
-            git::PullOutcome::CreatedUnborn(branch) => {
-                write!(stdout, "created branch `{}`", branch)?
-            }
-            git::PullOutcome::FastForwarded(branch) => {
-                write!(stdout, "fast-forwarded branch `{}`", branch)?
-            }
-        }
-        crossterm::queue!(stdout, ResetColor)?;
-        Ok(())
-    })
+struct PullLineContent {
+    relative_path: PathBuf,
+    state: Mutex<PullState>,
 }
 
-#[derive(Clone, Debug)]
-enum FetchState<'out, 'block> {
-    Pending(output::Line<'out, 'block>),
-    Downloading(progress::ProgressBar<'out, 'block>),
-    Indexing(progress::ProgressBar<'out, 'block>),
+enum PullState {
+    Pending,
+    Downloading(ProgressBar),
+    Indexing(ProgressBar),
+    Finished(crate::Result<git::PullOutcome>),
 }
 
-impl<'out, 'block> FetchState<'out, 'block> {
-    fn tick(&mut self, progress: git2::Progress<'_>) -> crate::Result<()> {
-        const STATUS_COLS: u16 = 13;
+impl PullLineContent {
+    fn build<'out, 'block>(
+        block: &'block output::Block<'out>,
+        entry: &walk::Entry,
+    ) -> output::Line<'out, 'block, Self> {
+        block.add_line(PullLineContent {
+            relative_path: entry.relative_path.clone(),
+            state: Mutex::new(PullState::Pending),
+        })
+    }
 
+    fn update<'out, 'block>(entry: &walk::Entry, line: output::Line<'out, 'block, Self>) {
+        log::debug!("pulling repo at `{}`", entry.relative_path.display());
+
+        let outcome = entry
+            .repo
+            .status()
+            .map_err(|err| crate::Error::with_context(err, "failed to get repo status"))
+            .and_then(|status| {
+                let line = line.clone();
+                entry.repo.pull(&entry.settings, &status, move |progress| {
+                    line.content().state.lock().unwrap().tick(progress);
+                    line.update();
+                    Ok(true)
+                })
+            });
+
+        *line.content().state.lock().unwrap() = PullState::Finished(outcome);
+
+        line.finish();
+    }
+}
+
+impl PullState {
+    fn tick(&mut self, progress: git2::Progress<'_>) {
         match *self {
-            FetchState::Pending(ref line) => {
-                *self = FetchState::Downloading(line.write_progress(STATUS_COLS, |stdout| {
-                    crossterm::queue!(stdout, SetForegroundColor(Color::Grey))?;
-                    write!(stdout, "{}", "downloading:")?;
-                    crossterm::queue!(stdout, ResetColor)?;
-                    Ok(())
-                })?);
+            PullState::Pending => {
+                *self = PullState::Downloading(ProgressBar::new());
             }
-            FetchState::Downloading(ref bar)
+            PullState::Downloading(ref mut bar)
                 if progress.received_objects() != progress.total_objects() =>
             {
-                bar.set(progress.received_objects() as f64 / progress.total_objects() as f64)?;
+                bar.set(progress.received_objects() as f64 / progress.total_objects() as f64);
             }
-            FetchState::Downloading(ref mut bar) => {
-                let line = bar.finish()?;
-                *self = FetchState::Indexing(line.write_progress(STATUS_COLS, |stdout| {
-                    crossterm::queue!(stdout, SetForegroundColor(Color::Grey))?;
-                    write!(stdout, "{}", "indexing:   ")?;
-                    crossterm::queue!(stdout, ResetColor)?;
-                    Ok(())
-                })?);
+            PullState::Downloading(_) => {
+                *self = PullState::Indexing(ProgressBar::new());
             }
-            FetchState::Indexing(ref bar) => {
-                bar.set(progress.indexed_objects() as f64 / progress.total_objects() as f64)?
+            PullState::Indexing(ref mut bar) => {
+                bar.set(progress.indexed_objects() as f64 / progress.total_objects() as f64);
             }
-        };
+            PullState::Finished(_) => {}
+        }
+    }
+}
+
+impl LineContent for PullLineContent {
+    fn write(&self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
+        crossterm::queue!(stdout, Clear(ClearType::CurrentLine))?;
+
+        let (cols, _) = terminal::size()?;
+
+        write!(
+            stdout,
+            "{:padding$} ",
+            self.relative_path.display(),
+            padding = cols as usize / 2
+        )?;
+
+        let (cursor_col, _) = cursor::position()?;
+        let remaining_cols = cols - cursor_col;
+
+        let status_cols = 13;
+        let bar_cols = remaining_cols.saturating_sub(status_cols);
+
+        let state = self.state.lock().unwrap();
+        match &*state {
+            PullState::Pending => {}
+            PullState::Downloading(progress) => {
+                crossterm::queue!(stdout, SetForegroundColor(Color::Grey))?;
+                write!(
+                    stdout,
+                    "{:padding$}",
+                    "downloading:",
+                    padding = status_cols as usize
+                )?;
+                crossterm::queue!(stdout, ResetColor)?;
+
+                progress.write(stdout, bar_cols)?;
+            }
+            PullState::Indexing(progress) => {
+                crossterm::queue!(stdout, SetForegroundColor(Color::Grey))?;
+                write!(
+                    stdout,
+                    "{:padding$}",
+                    "indexing:",
+                    padding = status_cols as usize
+                )?;
+                crossterm::queue!(stdout, ResetColor)?;
+
+                progress.write(stdout, bar_cols)?;
+            }
+            PullState::Finished(Ok(outcome)) => {
+                crossterm::queue!(stdout, SetForegroundColor(Color::Green))?;
+
+                match outcome {
+                    git::PullOutcome::UpToDate(branch) => {
+                        write!(stdout, "branch `{}` is up to date", branch)?
+                    }
+                    git::PullOutcome::CreatedUnborn(branch) => {
+                        write!(stdout, "created branch `{}`", branch)?
+                    }
+                    git::PullOutcome::FastForwarded(branch) => {
+                        write!(stdout, "fast-forwarded branch `{}`", branch)?
+                    }
+                }
+
+                crossterm::queue!(stdout, ResetColor)?;
+            }
+            PullState::Finished(Err(err)) => err.write(stdout)?,
+        }
+
         Ok(())
     }
 }

@@ -7,7 +7,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct Error {
-    inner: Box<dyn std::error::Error>,
+    inner: Box<dyn std::error::Error + Send + Sync>,
 }
 
 #[derive(Debug)]
@@ -17,7 +17,7 @@ struct Context {
 }
 
 impl Error {
-    pub fn write(&self, stdout: &mut io::StdoutLock) -> Result<()> {
+    pub fn write(&self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
         crossterm::queue!(
             stdout,
             SetForegroundColor(Color::Red),

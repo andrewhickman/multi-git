@@ -3,7 +3,6 @@ use std::process::Command;
 use structopt::StructOpt;
 
 use crate::config::Config;
-use crate::output::Output;
 use crate::{alias, cli, config, git};
 
 #[derive(Debug, StructOpt)]
@@ -29,12 +28,7 @@ pub struct EditArgs {
     config: bool,
 }
 
-pub fn run(
-    _out: &Output,
-    args: &cli::Args,
-    edit_args: &EditArgs,
-    config: &Config,
-) -> crate::Result<()> {
+pub fn run(args: &cli::Args, edit_args: &EditArgs, config: &Config) -> crate::Result<()> {
     let path = if let Some(name) = &edit_args.target {
         alias::resolve(name, args, config)?
     } else if edit_args.config {

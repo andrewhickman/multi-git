@@ -1,79 +1,42 @@
-use crate::output;
-
-use std::io::Write;
+use std::io::{self, Write as _};
 
 use crossterm::cursor::MoveRight;
 use crossterm::style::{Attribute, SetAttribute};
-use crossterm::terminal::{Clear, ClearType};
 
 #[derive(Clone, Debug)]
-pub struct ProgressBar<'out, 'block> {
-    line: output::Line<'out, 'block>,
-    status_cols: u16,
-    bar_cols: u16,
-    finished: bool,
+pub struct ProgressBar {
+    progress: f64,
 }
 
-impl<'out, 'block> ProgressBar<'out, 'block> {
-    pub fn new(line: output::Line<'out, 'block>, status_cols: u16) -> Self {
-        ProgressBar {
-            line,
-            status_cols,
-            bar_cols: line.columns().saturating_sub(status_cols + 2),
-            finished: false,
+impl ProgressBar {
+    pub fn new() -> Self {
+        ProgressBar { progress: 0.0 }
+    }
+
+    pub fn write(&self, stdout: &mut io::StdoutLock, width: u16) -> crossterm::Result<()> {
+        let bar_width = width.saturating_sub(2) as usize;
+        let progress_width = (bar_width as f64 * self.progress) as usize;
+
+        crossterm::queue!(stdout, SetAttribute(Attribute::Dim))?;
+        write!(stdout, "[")?;
+        stdout.flush()?;
+
+        crossterm::queue!(stdout, SetAttribute(Attribute::Bold))?;
+        write!(stdout, "{:=>width$}", ">", width = progress_width)?;
+        crossterm::queue!(stdout, SetAttribute(Attribute::Reset))?;
+
+        if progress_width < bar_width {
+            crossterm::queue!(stdout, MoveRight((bar_width - progress_width) as u16))?;
         }
+
+        write!(stdout, "]")?;
+        stdout.flush()?;
+        crossterm::queue!(stdout, SetAttribute(Attribute::Reset))?;
+
+        Ok(())
     }
 
-    pub fn begin(&self) -> crate::Result<()> {
-        self.line.write(|stdout| {
-            crossterm::queue!(
-                stdout,
-                MoveRight(self.status_cols),
-                SetAttribute(Attribute::Dim),
-            )?;
-            write!(stdout, "[")?;
-            stdout.flush()?;
-            crossterm::queue!(stdout, MoveRight(self.bar_cols))?;
-            write!(stdout, "]")?;
-            stdout.flush()?;
-            crossterm::queue!(stdout, SetAttribute(Attribute::Reset))?;
-            Ok(())
-        })?;
-        self.set(0.0)
-    }
-
-    pub fn set(&self, progress: f64) -> crate::Result<()> {
-        let length = (self.bar_cols as f64 * progress) as usize;
-        self.line.write(|stdout| {
-            crossterm::queue!(
-                stdout,
-                MoveRight(self.status_cols + 1),
-                SetAttribute(Attribute::Bold),
-            )?;
-            write!(stdout, "{:=>length$}", ">", length = length)?;
-            crossterm::queue!(stdout, SetAttribute(Attribute::Reset))?;
-            Ok(())
-        })
-    }
-
-    pub fn finish(&mut self) -> crate::Result<output::Line<'out, 'block>> {
-        self.line.write(|stdout| {
-            crossterm::queue!(
-                stdout,
-                MoveRight(self.status_cols),
-                Clear(ClearType::UntilNewLine)
-            )?;
-            Ok(())
-        })?;
-        self.finished = true;
-        Ok(self.line)
-    }
-}
-
-impl<'out, 'block> Drop for ProgressBar<'out, 'block> {
-    fn drop(&mut self) {
-        if !self.finished {
-            self.finish().ok();
-        }
+    pub fn set(&mut self, progress: f64) {
+        self.progress = progress;
     }
 }

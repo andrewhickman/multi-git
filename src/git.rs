@@ -12,21 +12,21 @@ pub struct Repository {
     repo: git2::Repository,
 }
 
-pub struct RepositoryStatus<'repo> {
-    pub head: HeadStatus<'repo>,
+pub struct RepositoryStatus {
+    pub head: HeadStatus,
     pub upstream: UpstreamStatus,
     pub working_tree: WorkingTreeStatus,
 }
 
-pub struct HeadStatus<'repo> {
+pub struct HeadStatus {
     pub name: BString,
-    pub kind: HeadStatusKind<'repo>,
+    pub kind: HeadStatusKind,
 }
 
-pub enum HeadStatusKind<'repo> {
+pub enum HeadStatusKind {
     Unborn,
     Detached,
-    Branch { branch: git2::Branch<'repo> },
+    Branch { oid: git2::Oid },
 }
 
 pub enum UpstreamStatus {
@@ -69,7 +69,7 @@ impl Repository {
         }
     }
 
-    pub fn status(&self) -> crate::Result<RepositoryStatus<'_>> {
+    pub fn status(&self) -> crate::Result<RepositoryStatus> {
         let head = self.head_status()?;
         let upstream = self.upstream_status(&head)?;
         let working_tree = self.working_tree_status()?;
@@ -91,7 +91,7 @@ impl Repository {
                     Ok(branch) => Ok(HeadStatus {
                         name,
                         kind: HeadStatusKind::Branch {
-                            branch: git2::Branch::wrap(branch),
+                            oid: branch.peel(git2::ObjectType::Any)?.id(),
                         },
                     }),
                     Err(err)
@@ -123,10 +123,11 @@ impl Repository {
         }
     }
 
-    fn upstream_status(&self, head: &HeadStatus) -> Result<UpstreamStatus, git2::Error> {
-        let local_branch = match &head.kind {
-            HeadStatusKind::Branch { branch } => branch,
-            _ => return Ok(UpstreamStatus::None),
+    fn upstream_status(&self, head_status: &HeadStatus) -> Result<UpstreamStatus, git2::Error> {
+        let local_branch = if head_status.is_branch() {
+            self.head_branch()?
+        } else {
+            return Ok(UpstreamStatus::None);
         };
         let local_oid = local_branch.get().peel(git2::ObjectType::Any)?.id();
 
@@ -190,7 +191,7 @@ impl Repository {
     pub fn pull<F>(
         &self,
         settings: &Settings,
-        status: &mut RepositoryStatus,
+        status: &RepositoryStatus,
         mut progress_callback: F,
     ) -> crate::Result<PullOutcome>
     where
@@ -264,9 +265,8 @@ impl Repository {
             return Err(crate::Error::from_message("not on default branch"));
         }
 
-        let upstream_oid = status
-            .head
-            .unwrap_branch()
+        let upstream_oid = self
+            .head_branch()?
             .upstream()?
             .into_reference()
             .target()
@@ -285,7 +285,7 @@ impl Repository {
             self.create_unborn(status, fetch_head)?;
             Ok(PullOutcome::CreatedUnborn(branch_name.clone()))
         } else if merge_analysis.is_fast_forward() {
-            self.fast_forward(status, fetch_head)?;
+            self.fast_forward(fetch_head)?;
             Ok(PullOutcome::FastForwarded(branch_name.clone()))
         } else {
             Err(crate::Error::from_message("cannot fast-forward"))
@@ -294,7 +294,7 @@ impl Repository {
 
     fn create_unborn(
         &self,
-        status: &RepositoryStatus<'_>,
+        status: &RepositoryStatus,
         fetch_commit: git2::AnnotatedCommit,
     ) -> Result<(), git2::Error> {
         debug_assert!(status.head.is_unborn());
@@ -310,12 +310,8 @@ impl Repository {
         Ok(())
     }
 
-    fn fast_forward(
-        &self,
-        status: &mut RepositoryStatus<'_>,
-        fetch_commit: git2::AnnotatedCommit,
-    ) -> Result<(), git2::Error> {
-        let branch = status.head.unwrap_branch();
+    fn fast_forward(&self, fetch_commit: git2::AnnotatedCommit) -> Result<(), git2::Error> {
+        let mut branch = self.head_branch()?;
 
         let log_message = format!(
             "multi-git: fast-forwarding branch {} to {}",
@@ -367,20 +363,26 @@ impl Repository {
         ))?;
         Ok(())
     }
+
+    fn head_branch(&self) -> Result<git2::Branch<'_>, git2::Error> {
+        let head = self.repo.head()?;
+        debug_assert!(head.is_branch());
+        Ok(git2::Branch::wrap(head))
+    }
 }
 
-impl<'repo> HeadStatus<'repo> {
-    fn is_unborn(&self) -> bool {
+impl HeadStatus {
+    fn is_branch(&self) -> bool {
         match self.kind {
-            HeadStatusKind::Unborn => true,
+            HeadStatusKind::Branch { .. } => true,
             _ => false,
         }
     }
 
-    fn unwrap_branch(&mut self) -> &mut git2::Branch<'repo> {
-        match &mut self.kind {
-            HeadStatusKind::Branch { branch } => branch,
-            _ => panic!("expected HEAD to be on a branch"),
+    fn is_unborn(&self) -> bool {
+        match self.kind {
+            HeadStatusKind::Unborn => true,
+            _ => false,
         }
     }
 
@@ -397,7 +399,7 @@ impl<'repo> HeadStatus<'repo> {
     }
 }
 
-impl<'repo> fmt::Display for HeadStatus<'repo> {
+impl fmt::Display for HeadStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
             HeadStatusKind::Unborn | HeadStatusKind::Branch { .. } => write!(f, "{}", self.name),

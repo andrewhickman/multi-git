@@ -1,11 +1,14 @@
 use std::borrow::Cow;
-use std::io::Write;
+use std::io::{self, Write};
+use std::path::PathBuf;
+use std::sync::Mutex;
 
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
+use crossterm::terminal::{self, Clear, ClearType};
 use structopt::StructOpt;
 
-use crate::config::Config;
-use crate::output::{self, Output};
+use crate::config::{Config, Settings};
+use crate::output::{self, LineContent, Output};
 use crate::walk::{self, walk};
 use crate::{alias, cli, git};
 
@@ -31,68 +34,108 @@ pub fn run(
         Cow::Borrowed(&config.root)
     };
 
-    walk(out, config, &root, visit_repo);
-    Ok(())
+    walk(
+        out,
+        config,
+        &root,
+        StatusLineContent::build,
+        StatusLineContent::update,
+    )
 }
 
-fn visit_repo(line: output::Line<'_, '_>, entry: &walk::Entry) -> crate::Result<()> {
-    log::debug!(
-        "getting status for repo at `{}`",
-        entry.relative_path.display()
-    );
+struct StatusLineContent {
+    settings: Settings,
+    relative_path: PathBuf,
+    status: Mutex<Option<crate::Result<git::RepositoryStatus>>>,
+}
 
-    let status = entry
-        .repo
-        .status()
-        .map_err(|err| crate::Error::with_context(err, "failed to get repo status"))?;
+impl StatusLineContent {
+    fn build<'out, 'block>(
+        block: &'block output::Block<'out>,
+        entry: &walk::Entry,
+    ) -> output::Line<'out, 'block, Self> {
+        block.add_line(StatusLineContent {
+            settings: entry.settings.clone(),
+            relative_path: entry.relative_path.clone(),
+            status: Mutex::new(None),
+        })
+    }
 
-    line.write(|stdout| {
-        let (text, color) = match status.upstream {
-            git::UpstreamStatus::None => (String::new(), Color::Reset),
-            git::UpstreamStatus::Gone => ("×".to_owned(), Color::Red),
-            git::UpstreamStatus::Upstream {
-                ahead: 0,
-                behind: 0,
-            } => ("≡".to_owned(), Color::DarkCyan),
-            git::UpstreamStatus::Upstream { ahead, behind: 0 } => {
-                (format!("{}↑", ahead), Color::Green)
-            }
-            git::UpstreamStatus::Upstream { ahead: 0, behind } => {
-                (format!("{}↓", behind), Color::Red)
-            }
-            git::UpstreamStatus::Upstream { ahead, behind } => {
-                (format!("{}↓ {}↑", behind, ahead), Color::Yellow)
-            }
-        };
-        crossterm::queue!(stdout, SetForegroundColor(color))?;
-        write!(stdout, "{:>8} ", text)?;
-        stdout.flush()?;
-        crossterm::queue!(stdout, ResetColor)?;
+    fn update<'out, 'block>(entry: &walk::Entry, line: output::Line<'out, 'block, Self>) {
+        let status_result = entry.repo.status();
+        *line.content().status.lock().unwrap() = Some(status_result);
+        line.finish();
+    }
+}
 
-        if status.working_tree.working_changed {
-            crossterm::queue!(
-                stdout,
-                SetForegroundColor(Color::Red),
-                SetAttribute(Attribute::Bold)
-            )?;
-            write!(stdout, "! ")?;
-            crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
-        } else if status.working_tree.index_changed {
-            crossterm::queue!(stdout, SetForegroundColor(Color::Cyan),)?;
-            write!(stdout, "~ ")?;
-            crossterm::queue!(stdout, ResetColor)?;
-        } else {
-            write!(stdout, "  ")?;
+impl LineContent for StatusLineContent {
+    fn write(&self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
+        crossterm::queue!(stdout, Clear(ClearType::CurrentLine))?;
+
+        let (cols, _) = terminal::size()?;
+
+        write!(
+            stdout,
+            "{:padding$} ",
+            self.relative_path.display(),
+            padding = cols as usize / 2
+        )?;
+
+        let status = self.status.lock().unwrap();
+        match &*status {
+            Some(Ok(status)) => {
+                let (text, color) = match status.upstream {
+                    git::UpstreamStatus::None => (String::new(), Color::Reset),
+                    git::UpstreamStatus::Gone => ("×".to_owned(), Color::Red),
+                    git::UpstreamStatus::Upstream {
+                        ahead: 0,
+                        behind: 0,
+                    } => ("≡".to_owned(), Color::DarkCyan),
+                    git::UpstreamStatus::Upstream { ahead, behind: 0 } => {
+                        (format!("{}↑", ahead), Color::Green)
+                    }
+                    git::UpstreamStatus::Upstream { ahead: 0, behind } => {
+                        (format!("{}↓", behind), Color::Red)
+                    }
+                    git::UpstreamStatus::Upstream { ahead, behind } => {
+                        (format!("{}↓ {}↑", behind, ahead), Color::Yellow)
+                    }
+                };
+                crossterm::queue!(stdout, SetForegroundColor(color))?;
+                write!(stdout, "{:>8} ", text)?;
+                stdout.flush()?;
+                crossterm::queue!(stdout, ResetColor)?;
+
+                if status.working_tree.working_changed {
+                    crossterm::queue!(
+                        stdout,
+                        SetForegroundColor(Color::Red),
+                        SetAttribute(Attribute::Bold)
+                    )?;
+                    write!(stdout, "! ")?;
+                    crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
+                } else if status.working_tree.index_changed {
+                    crossterm::queue!(stdout, SetForegroundColor(Color::Cyan),)?;
+                    write!(stdout, "~ ")?;
+                    crossterm::queue!(stdout, ResetColor)?;
+                } else {
+                    write!(stdout, "  ")?;
+                }
+
+                crossterm::queue!(stdout, SetForegroundColor(Color::DarkCyan))?;
+                if !status.head.on_default_branch(&self.settings) {
+                    crossterm::queue!(stdout, SetAttribute(Attribute::Bold))?;
+                }
+                write!(stdout, "{}", status.head)?;
+                stdout.flush()?;
+                crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
+            }
+            Some(Err(err)) => {
+                err.write(stdout)?;
+            }
+            None => {}
         }
-
-        crossterm::queue!(stdout, SetForegroundColor(Color::DarkCyan))?;
-        if !status.head.on_default_branch(&entry.settings) {
-            crossterm::queue!(stdout, SetAttribute(Attribute::Bold))?;
-        }
-        write!(stdout, "{}", status.head)?;
-        stdout.flush()?;
-        crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
 
         Ok(())
-    })
+    }
 }

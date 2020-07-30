@@ -1,11 +1,16 @@
+mod skip_range;
+
 use std::fs;
+use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 
+use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use rayon::prelude::*;
 
+use self::skip_range::SkipRange;
 use crate::config::{Config, Settings};
-use crate::output::{self, Output};
-use crate::{git, Error};
+use crate::git;
+use crate::output::{Block, Line, LineContent, Output};
 
 pub struct Entry {
     pub relative_path: PathBuf,
@@ -20,30 +25,67 @@ pub fn init_thread_pool() {
         .unwrap()
 }
 
-pub fn walk<F>(out: &Output, config: &Config, path: &Path, visit: F)
+pub fn walk<'out, C, B, U>(
+    output: &'out Output,
+    config: &Config,
+    path: &Path,
+    build: B,
+    update: U,
+) -> crate::Result<()>
 where
-    F: Fn(output::Line, &Entry) -> Result<(), Error> + Sync,
+    C: LineContent + 'out,
+    B: for<'block> FnMut(&'block Block<'out>, &Entry) -> Line<'out, 'block, C>,
+    U: for<'block> Fn(&Entry, Line<'out, 'block, C>) + Sync,
+{
+    let block = output.block()?;
+    let mut lines = walk_build(&block, config, path, build);
+    walk_update(&mut lines, update);
+    Ok(())
+}
+
+fn walk_build<'out, 'block, C, B>(
+    block: &'block Block<'out>,
+    config: &Config,
+    path: &Path,
+    mut build: B,
+) -> Vec<(Entry, Line<'out, 'block, C>)>
+where
+    C: LineContent + 'out,
+    B: FnMut(&'block Block<'out>, &Entry) -> Line<'out, 'block, C>,
 {
     match git::Repository::try_open(path) {
-        Ok(Some(repo)) => visit_repos(
-            out,
-            path,
-            &mut [Entry::from_path(config, path, repo)],
-            &visit,
-        ),
-        Ok(None) => walk_inner(out, config, path, &visit),
-        Err(err) => out.write_error(&err.into()),
+        Ok(Some(repo)) => {
+            block.add_finished_line(DirectoryLineContent::new(path));
+            let entry = Entry::from_path(config, path, repo);
+            let line = build(block, &entry);
+            vec![(entry, line)]
+        }
+        Ok(None) => {
+            let mut result = vec![];
+            walk_build_inner(block, config, path, &mut result, &mut build);
+            result
+        }
+        Err(err) => {
+            block.add_error_line(err);
+            vec![]
+        }
     }
 }
 
-fn walk_inner<F>(out: &Output, config: &Config, path: &Path, visit: &F)
-where
-    F: Fn(output::Line, &Entry) -> Result<(), Error> + Sync,
+fn walk_build_inner<'out, 'block, C, B>(
+    block: &'block Block<'out>,
+    config: &Config,
+    path: &Path,
+    result: &mut Vec<(Entry, Line<'out, 'block, C>)>,
+    build: &mut B,
+) where
+    C: LineContent,
+    B: FnMut(&'block Block<'out>, &Entry) -> Line<'out, 'block, C>,
 {
     let entries = match fs::read_dir(path) {
         Ok(entries) => entries,
         Err(err) => {
-            return out.write_error(&Error::with_context(
+            return block.add_error_line(crate::Error::with_context(
                 err,
                 format!("failed to read directory `{}`", path.display()),
             ))
@@ -73,20 +115,20 @@ where
                             Ok(None) => {
                                 subdirectories.push(sub_path);
                             }
-                            Err(err) => out.write_error(&Error::with_context(
+                            Err(err) => block.add_error_line(crate::Error::with_context(
                                 err,
                                 format!("failed to open repo at `{}`", sub_path.display()),
                             )),
                         }
                     }
-                    Err(err) => out.write_error(&Error::with_context(
+                    Err(err) => block.add_error_line(crate::Error::with_context(
                         err,
                         format!("failed to get metadata for `{}`", sub_path.display()),
                     )),
                     _ => (),
                 }
             }
-            Err(err) => out.write_error(&Error::with_context(
+            Err(err) => block.add_error_line(crate::Error::with_context(
                 err,
                 format!("failed to read entry in `{}`", path.display()),
             )),
@@ -94,37 +136,28 @@ where
     }
 
     if !repos.is_empty() {
-        visit_repos(out, path, &mut repos, visit);
+        block.add_finished_line(DirectoryLineContent::new(path));
+        result.extend(repos.into_iter().map(|repo| {
+            let line = build(block, &repo);
+            (repo, line)
+        }));
     }
 
     for subdirectory in subdirectories {
-        walk_inner(out, config, &subdirectory, visit);
+        walk_build_inner(block, config, &subdirectory, result, build);
     }
 }
 
-fn visit_repos<F>(out: &Output, path: &Path, entries: &mut [Entry], visit: &F)
+fn walk_update<'out, 'block, C, U>(lines: &mut [(Entry, Line<'out, 'block, C>)], update: U)
 where
-    F: Fn(output::Line, &Entry) -> Result<(), Error> + Sync,
+    C: LineContent,
+    U: Fn(&Entry, Line<'out, 'block, C>) + Sync,
 {
-    let block = match out.write_block(
-        path.display(),
-        entries.iter().map(|entry| entry.relative_path.display()),
-    ) {
-        Ok(block) => block,
-        Err(err) => {
-            return out.write_error(&err);
+    rayon::iter::split(SkipRange::new(lines), SkipRange::split).for_each(|line_range| {
+        for (entry, line) in line_range {
+            update(entry, line.clone());
         }
-    };
-
-    entries
-        .par_iter_mut()
-        .enumerate()
-        .for_each(|(index, entry)| {
-            let line = block.line(index as u16);
-            if let Err(err) = visit(line, entry) {
-                line.write_error(&err);
-            }
-        });
+    })
 }
 
 impl Entry {
@@ -140,5 +173,29 @@ impl Entry {
         let relative_path = config.get_relative_path(path).to_owned();
         let settings = config.settings(&relative_path);
         Entry::new(relative_path, repo, settings)
+    }
+}
+
+struct DirectoryLineContent {
+    path: PathBuf,
+}
+
+impl DirectoryLineContent {
+    fn new(path: impl Into<PathBuf>) -> Self {
+        DirectoryLineContent { path: path.into() }
+    }
+}
+
+impl LineContent for DirectoryLineContent {
+    fn write(&self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
+        crossterm::queue!(
+            stdout,
+            SetForegroundColor(Color::Yellow),
+            SetAttribute(Attribute::Underlined)
+        )?;
+        write!(stdout, "{}", self.path.display())?;
+        stdout.flush()?;
+        crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
+        Ok(())
     }
 }
