@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::sync::{Arc, Mutex};
 
 use crossterm::cursor::{self, MoveToColumn, MoveUp};
-use crossterm::terminal::{self, Clear, ClearType};
+use crossterm::terminal;
 
 pub struct Output {
     stdout: io::Stdout,
@@ -142,9 +142,11 @@ impl<'out> BlockInner<'out> {
         index
     }
 
-    fn update(&mut self, stdout: &mut io::StdoutLock, _: usize) -> crossterm::Result<()> {
-        self.write_all(stdout)?;
-        crossterm::queue!(stdout, MoveUp(self.range.len() as u16))?;
+    fn update(&mut self, stdout: &mut io::StdoutLock, index: usize) -> crossterm::Result<()> {
+        if self.range.contains(&index) {
+            self.write_all(stdout)?;
+            crossterm::queue!(stdout, MoveUp(self.range.len() as u16))?;
+        }
         Ok(())
     }
 
@@ -172,7 +174,6 @@ impl<'out> BlockInner<'out> {
 
     fn write_all(&mut self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
         for index in self.range.clone() {
-            crossterm::queue!(stdout, Clear(ClearType::CurrentLine))?;
             self.entries[index].content.write(stdout)?;
             writeln!(stdout)?;
         }

@@ -3,7 +3,6 @@ use std::io::{self, Write as _};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use crossterm::cursor;
 use crossterm::style::{Color, ResetColor, SetForegroundColor};
 use crossterm::terminal::{self, Clear, ClearType};
 use structopt::StructOpt;
@@ -115,16 +114,14 @@ impl LineContent for PullLineContent {
 
         let (cols, _) = terminal::size()?;
 
-        write!(
-            stdout,
-            "{:padding$} ",
+        let relative_path = format!(
+            "{:padding$}",
             self.relative_path.display(),
-            padding = cols as usize / 2
-        )?;
+            padding = cols as usize / 2,
+        );
+        write!(stdout, "{}", relative_path)?;
 
-        let (cursor_col, _) = cursor::position()?;
-        let remaining_cols = cols - cursor_col;
-
+        let remaining_cols = cols.saturating_sub(relative_path.len() as u16);
         let status_cols = 13;
         let bar_cols = remaining_cols.saturating_sub(status_cols);
 

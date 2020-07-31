@@ -14,7 +14,10 @@ impl ProgressBar {
     }
 
     pub fn write(&self, stdout: &mut io::StdoutLock, width: u16) -> crossterm::Result<()> {
-        let bar_width = width.saturating_sub(2) as usize;
+        if width <= 2 {
+            return Ok(());
+        }
+        let bar_width = (width - 2) as usize;
         let progress_width = (bar_width as f64 * self.progress) as usize;
 
         crossterm::queue!(stdout, SetAttribute(Attribute::Dim))?;
