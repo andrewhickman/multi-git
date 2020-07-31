@@ -83,3 +83,10 @@ fn shell() -> Command {
     cmd.arg("/C");
     cmd
 }
+
+#[cfg(unix)]
+fn shell() -> Command {
+    let mut cmd = Command::new("sh");
+    cmd.arg("-c");
+    cmd
+}
