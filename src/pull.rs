@@ -67,6 +67,8 @@ impl PullLineContent {
     fn update<'out, 'block>(entry: &walk::Entry, line: output::Line<'out, 'block, Self>) {
         log::debug!("pulling repo at `{}`", entry.relative_path.display());
 
+        line.update();
+
         let outcome = entry
             .repo
             .status()
