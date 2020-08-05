@@ -3,6 +3,7 @@ mod skip_range;
 use std::fs;
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
+use std::sync::Once;
 
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use rayon::prelude::*;
@@ -18,11 +19,16 @@ pub struct Entry {
     pub settings: Settings,
 }
 
-pub fn init_thread_pool() {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(num_cpus::get() * 2)
-        .build_global()
-        .unwrap()
+fn init_thread_pool() {
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_cpus::get() * 2)
+            .thread_name(|index| format!("rayon-work-thread-{}", index))
+            .build_global()
+            .unwrap()
+    });
 }
 
 pub fn walk<'out, C, B, U>(
@@ -37,6 +43,8 @@ where
     B: for<'block> FnMut(&'block Block<'out>, &Entry) -> Line<'out, 'block, C>,
     U: for<'block> Fn(&Entry, Line<'out, 'block, C>) + Sync,
 {
+    init_thread_pool();
+
     let block = output.block()?;
     let mut lines = walk_build(&block, config, path, build);
     walk_update(&mut lines, update);
