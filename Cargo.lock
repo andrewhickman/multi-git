@@ -221,7 +221,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.73 (registry+https://github.com/rust-lang/crates.io-index)",
- "libgit2-sys 0.12.9+1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libgit2-sys 0.12.9+1.0.1 (git+https://github.com/andrewhickman/git2-rs?rev=93a3bf0e2fb02c37da3ea8da60ee92af21ab694b)",
  "log 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl-probe 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl-sys 0.9.58 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -301,7 +301,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "libgit2-sys"
 version = "0.12.9+1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/andrewhickman/git2-rs?rev=93a3bf0e2fb02c37da3ea8da60ee92af21ab694b#93a3bf0e2fb02c37da3ea8da60ee92af21ab694b"
 dependencies = [
  "cc 1.0.58 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.73 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -920,7 +920,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum jobserver 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)" = "5c71313ebb9439f74b00d9d2dcec36440beaf57a6aa0623068441dd7cd81a7f2"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 "checksum libc 0.2.73 (registry+https://github.com/rust-lang/crates.io-index)" = "bd7d4bd64732af4bf3a67f367c27df8520ad7e230c5817b8ff485864d80242b9"
-"checksum libgit2-sys 0.12.9+1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "9b33bf3d9d4c45b48ae1ea7c334be69994624dc0a69f833d5d9f7605f24b552b"
+"checksum libgit2-sys 0.12.9+1.0.1 (git+https://github.com/andrewhickman/git2-rs?rev=93a3bf0e2fb02c37da3ea8da60ee92af21ab694b)" = "<none>"
 "checksum libssh2-sys 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)" = "eafa907407504b0e683786d4aba47acf250f114d37357d56608333fd167dd0fc"
 "checksum libz-sys 1.0.25 (registry+https://github.com/rust-lang/crates.io-index)" = "2eb5e43362e38e2bca2fd5f5134c4d4564a23a5c28e9b95411652021a8675ebe"
 "checksum lock_api 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "c4da24a77a3d8a6d4862d95f72e6fdb9c09a643ecdb402d754004a557f2bec75"
