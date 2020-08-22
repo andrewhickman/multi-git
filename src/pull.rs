@@ -10,7 +10,7 @@ use structopt::StructOpt;
 use crate::config::Config;
 use crate::output::{self, LineContent, Output};
 use crate::progress::ProgressBar;
-use crate::walk::{self, walk};
+use crate::walk::{self, walk_with_output};
 use crate::{alias, cli, git};
 
 #[derive(Debug, StructOpt)]
@@ -29,13 +29,13 @@ pub fn run(
     let root = if let Some(name) = &pull_args.target {
         Cow::Owned(alias::resolve(name, args, config)?)
     } else {
-        Cow::Borrowed(&config.root)
+        Cow::Borrowed(&*config.root)
     };
 
-    walk(
+    walk_with_output(
         out,
         config,
-        &root,
+        root,
         PullLineContent::build,
         PullLineContent::update,
     )
