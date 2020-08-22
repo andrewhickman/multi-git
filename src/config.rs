@@ -5,12 +5,16 @@ use std::{env, fmt};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{de, Deserialize, Deserializer};
 
+use crate::exec::Shell;
+
 pub const FILE_PATH_VAR: &str = "MULTIGIT_CONFIG_PATH";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Config {
     pub root: PathBuf,
+    #[serde(default)]
+    pub default_shell: Shell,
     #[serde(flatten)]
     pub default_settings: Settings,
     #[serde(default)]
@@ -70,6 +74,7 @@ impl Config {
             root: env::current_dir().map_err(|err| {
                 crate::Error::with_context(err, "failed to get current directory")
             })?,
+            default_shell: Shell::default(),
             aliases: BTreeMap::new(),
             settings: SettingsMatcher::default(),
             default_settings: Settings::default(),

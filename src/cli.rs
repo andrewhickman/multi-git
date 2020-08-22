@@ -1,7 +1,7 @@
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
-use crate::{edit, pull, resolve, status};
+use crate::{edit, exec, pull, resolve, status};
 
 pub fn parse_args() -> Args {
     Args::from_args()
@@ -21,6 +21,8 @@ pub struct Args {
     pub command: Command,
     #[structopt(long, short = "A", help = "Disable aliases")]
     pub no_alias: bool,
+    #[structopt(long, short, help = "Number of threads to use. If set to 0, uses the number of available CPUs", default_value = "0")]
+    pub jobs: usize,
 }
 
 #[derive(Debug, StructOpt)]
@@ -34,4 +36,6 @@ pub enum Command {
     Pull(pull::PullArgs),
     #[structopt(name = "resolve", no_version)]
     Resolve(resolve::ResolveArgs),
+    #[structopt(name = "exec", no_version)]
+    Exec(exec::ExecArgs),
 }

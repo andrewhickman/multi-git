@@ -10,7 +10,7 @@ use rayon::prelude::*;
 
 use self::skip_range::SkipRange;
 use crate::config::{Config, Settings};
-use crate::git;
+use crate::{git, cli};
 use crate::output::{Block, Line, LineContent, Output};
 
 pub struct Entry {
@@ -20,12 +20,12 @@ pub struct Entry {
     pub settings: Settings,
 }
 
-fn init_thread_pool() {
+fn init_thread_pool(args: &cli::Args) {
     static INIT: Once = Once::new();
 
     INIT.call_once(|| {
         rayon::ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get() * 2)
+            .num_threads(args.jobs)
             .thread_name(|index| format!("rayon-work-thread-{}", index))
             .build_global()
             .unwrap()
@@ -33,6 +33,7 @@ fn init_thread_pool() {
 }
 
 pub fn walk_with_output<'out, C, B, U>(
+    args: &cli::Args,
     output: &'out Output,
     config: &Config,
     path: impl Into<PathBuf> + AsRef<Path>,
@@ -44,11 +45,9 @@ where
     B: for<'block> FnMut(&'block Block<'out>, &Entry) -> Line<'out, 'block, C>,
     U: for<'block> Fn(&Entry, Line<'out, 'block, C>) + Sync,
 {
-    init_thread_pool();
-
     let block = output.block()?;
     let mut lines = walk_build(&block, config, path, build);
-    walk_update(&mut lines, update);
+    walk_update(args, &mut lines, update);
     Ok(())
 }
 
@@ -122,12 +121,7 @@ fn walk_inner<F, G, H>(
                         match git::Repository::try_open(&sub_path) {
                             Ok(Some(repo)) => {
                                 let relative_path = relative_path.to_owned();
-                                repos.push(Entry::new(
-                                    sub_path,
-                                    relative_path,
-                                    repo,
-                                    settings,
-                                ));
+                                repos.push(Entry::new(sub_path, relative_path, repo, settings));
                             }
                             Ok(None) => {
                                 subdirectories.push(sub_path);
@@ -194,12 +188,12 @@ where
     result
 }
 
-fn walk_update<'out, 'block, C, U>(lines: &mut [(Entry, Line<'out, 'block, C>)], update: U)
+fn walk_update<'out, 'block, C, U>(args: &cli::Args, lines: &mut [(Entry, Line<'out, 'block, C>)], update: U)
 where
     C: LineContent,
     U: Fn(&Entry, Line<'out, 'block, C>) + Sync,
 {
-    init_thread_pool();
+    init_thread_pool(args);
 
     rayon::iter::split(SkipRange::new(lines), SkipRange::split).for_each(|line_range| {
         for (entry, line) in line_range {

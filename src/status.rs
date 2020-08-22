@@ -17,7 +17,7 @@ use crate::{alias, cli, git};
 pub struct StatusArgs {
     #[structopt(
         value_name = "TARGET",
-        help = "the path or alias of the repo to get status for"
+        help = "the path or alias of the repo(s) to get status for"
     )]
     target: Option<String>,
 }
@@ -35,6 +35,7 @@ pub fn run(
     };
 
     walk_with_output(
+        args,
         out,
         config,
         root,

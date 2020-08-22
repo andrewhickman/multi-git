@@ -3,6 +3,7 @@ mod cli;
 mod config;
 mod edit;
 mod error;
+mod exec;
 mod git;
 mod output;
 mod progress;
@@ -40,5 +41,6 @@ fn run(out: &Output, args: &cli::Args) -> Result<()> {
         cli::Command::Status(status_args) => status::run(out, &args, status_args, &config),
         cli::Command::Pull(pull_args) => pull::run(out, &args, pull_args, &config),
         cli::Command::Resolve(resolve_args) => resolve::run(out, &args, resolve_args, &config),
+        cli::Command::Exec(exec_args) => exec::run(out, &args, exec_args, &config),
     }
 }
