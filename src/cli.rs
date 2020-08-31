@@ -7,13 +7,17 @@ pub fn parse_args() -> Args {
     Args::from_args()
 }
 
+const VERSION: &str = env!("VERGEN_SHA_SHORT");
+const LONG_VERSION: &str = env!("VERGEN_SHA");
+
 #[derive(Debug, StructOpt)]
 #[structopt(
     about = "Utility for managing multiple git repos",
     bin_name = "mgit",
-    no_version
+    version = VERSION,
+    long_version = LONG_VERSION,
 )]
-#[structopt(global_setting = AppSettings::DisableVersion)]
+#[structopt(version = VERSION, long_version = LONG_VERSION)]
 #[structopt(global_setting = AppSettings::UnifiedHelpMessage)]
 #[structopt(global_setting = AppSettings::VersionlessSubcommands)]
 pub struct Args {
