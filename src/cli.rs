@@ -21,7 +21,12 @@ pub struct Args {
     pub command: Command,
     #[structopt(long, short = "A", help = "Disable aliases")]
     pub no_alias: bool,
-    #[structopt(long, short, help = "Number of threads to use. If set to 0, uses the number of available CPUs", default_value = "0")]
+    #[structopt(
+        long,
+        short,
+        help = "Number of threads to use. If set to 0, uses the number of available CPUs",
+        default_value = "0"
+    )]
     pub jobs: usize,
 }
 

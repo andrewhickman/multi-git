@@ -113,7 +113,10 @@ impl std::error::Error for Context {
 }
 
 impl serde::de::Error for Error {
-    fn custom<T>(msg: T) -> Self where T: fmt::Display {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: fmt::Display,
+    {
         Error::from_message(msg)
     }
 }

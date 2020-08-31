@@ -1,11 +1,11 @@
-use std::ffi::OsString;
 use std::borrow::Cow;
+use std::ffi::OsString;
 use std::process::Command;
 use std::str::FromStr;
 
-use structopt::StructOpt;
-use serde::Deserialize;
 use serde::de::IntoDeserializer;
+use serde::Deserialize;
+use structopt::StructOpt;
 
 use crate::config::Config;
 use crate::output::Output;
@@ -66,12 +66,11 @@ pub fn run(
         Cow::Borrowed(&*config.root)
     };
 
-
     let mut command = match shell.command() {
         Some(mut command) => {
             command.args(&exec_args.command);
             command
-        },
+        }
         None => {
             let mut command = Command::new(&exec_args.command[0]);
             command.args(&exec_args.command[1..]);

@@ -44,7 +44,7 @@ impl Output {
         }
     }
 
-    pub fn writeln<'out, F>(&'out self, write: F) -> crate::Result<()>
+    pub fn writeln<F>(&self, write: F) -> crate::Result<()>
     where
         F: FnOnce(&mut io::StdoutLock) -> crossterm::Result<()>,
     {

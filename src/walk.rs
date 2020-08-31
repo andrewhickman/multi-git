@@ -10,8 +10,8 @@ use rayon::prelude::*;
 
 use self::skip_range::SkipRange;
 use crate::config::{Config, Settings};
-use crate::{git, cli};
 use crate::output::{Block, Line, LineContent, Output};
+use crate::{cli, git};
 
 pub struct Entry {
     pub path: PathBuf,
@@ -188,8 +188,11 @@ where
     result
 }
 
-fn walk_update<'out, 'block, C, U>(args: &cli::Args, lines: &mut [(Entry, Line<'out, 'block, C>)], update: U)
-where
+fn walk_update<'out, 'block, C, U>(
+    args: &cli::Args,
+    lines: &mut [(Entry, Line<'out, 'block, C>)],
+    update: U,
+) where
     C: LineContent,
     U: Fn(&Entry, Line<'out, 'block, C>) + Sync,
 {
