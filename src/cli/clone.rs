@@ -86,9 +86,11 @@ pub fn run(
                 )));
             }
 
-            let relative_path = path.strip_prefix(&config.root).unwrap_or(&path).to_str().ok_or_else(|| {
-                crate::Error::from_message(format!("path is invalid UTF-16"))
-            })?;
+            let relative_path = path
+                .strip_prefix(&config.root)
+                .unwrap_or(&path)
+                .to_str()
+                .ok_or_else(|| crate::Error::from_message(format!("path is invalid UTF-16")))?;
 
             aliases[alias] = toml_edit::value(relative_path);
 

@@ -7,7 +7,7 @@ use serde::de::IntoDeserializer;
 use serde::Deserialize;
 use structopt::StructOpt;
 
-use crate::config::Config;
+use crate::config::{Config, Shell};
 use crate::output::Output;
 use crate::walk::walk;
 use crate::{alias, cli};
@@ -38,18 +38,6 @@ pub struct ExecArgs {
         parse(try_from_str)
     )]
     shell: Option<Shell>,
-}
-
-#[derive(Copy, Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Shell {
-    None,
-    #[serde(alias = "sh")]
-    Bash,
-    Cmd,
-    Powershell,
-    #[serde(alias = "pwsh")]
-    PowershellCore,
 }
 
 pub fn run(

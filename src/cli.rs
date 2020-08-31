@@ -1,7 +1,19 @@
+mod clone;
+mod edit;
+mod exec;
+mod pull;
+mod resolve;
+mod status;
+
+pub use self::clone::{run as clone, CloneArgs};
+pub use self::edit::{run as edit, EditArgs};
+pub use self::exec::{run as exec, ExecArgs};
+pub use self::pull::{run as pull, PullArgs};
+pub use self::resolve::{run as resolve, ResolveArgs};
+pub use self::status::{run as status, StatusArgs};
+
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
-
-use crate::{clone, edit, exec, pull, resolve, status};
 
 pub fn parse_args() -> Args {
     Args::from_args()
@@ -38,15 +50,15 @@ pub struct Args {
 #[structopt(no_version)]
 pub enum Command {
     #[structopt(name = "edit", no_version)]
-    Edit(edit::EditArgs),
+    Edit(EditArgs),
     #[structopt(name = "status", no_version)]
-    Status(status::StatusArgs),
+    Status(StatusArgs),
     #[structopt(name = "pull", no_version)]
-    Pull(pull::PullArgs),
+    Pull(PullArgs),
     #[structopt(name = "resolve", no_version)]
-    Resolve(resolve::ResolveArgs),
+    Resolve(ResolveArgs),
     #[structopt(name = "exec", no_version)]
-    Exec(exec::ExecArgs),
+    Exec(ExecArgs),
     #[structopt(name = "clone", no_version)]
-    Clone(clone::CloneArgs),
+    Clone(CloneArgs),
 }

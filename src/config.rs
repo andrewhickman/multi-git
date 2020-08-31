@@ -7,8 +7,6 @@ use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{de, Deserialize, Deserializer};
 use toml_edit::Document;
 
-use crate::exec::Shell;
-
 pub const FILE_PATH_VAR: &str = "MULTIGIT_CONFIG_PATH";
 
 #[derive(Debug, Deserialize)]
@@ -23,6 +21,18 @@ pub struct Config {
     pub aliases: BTreeMap<String, PathBuf>,
     #[serde(default)]
     pub settings: SettingsMatcher,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Shell {
+    None,
+    #[serde(alias = "sh")]
+    Bash,
+    Cmd,
+    Powershell,
+    #[serde(alias = "pwsh")]
+    PowershellCore,
 }
 
 pub fn parse() -> crate::Result<Config> {
