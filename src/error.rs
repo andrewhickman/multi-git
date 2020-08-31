@@ -48,6 +48,10 @@ impl Error {
             error: error.into(),
         })
     }
+
+    pub fn context(self, message: impl ToString) -> Self {
+        Error::with_context(self, message)
+    }
 }
 
 impl From<git2::Error> for Error {
@@ -78,6 +82,12 @@ impl From<fmt::Error> for Error {
 
 impl From<toml::de::Error> for Error {
     fn from(err: toml::de::Error) -> Error {
+        Error { inner: err.into() }
+    }
+}
+
+impl From<toml_edit::TomlError> for Error {
+    fn from(err: toml_edit::TomlError) -> Error {
         Error { inner: err.into() }
     }
 }

@@ -2,8 +2,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::{env, fmt};
 
+use fn_error_context::context;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{de, Deserialize, Deserializer};
+use toml_edit::Document;
 
 use crate::exec::Shell;
 
@@ -34,6 +36,30 @@ pub fn parse() -> crate::Result<Config> {
         }
         None => Config::default(),
     }
+}
+
+#[context("failed to edit config file")]
+pub fn edit(f: impl FnOnce(&mut Document) -> crate::Result<()>) -> crate::Result<()> {
+    let path = expect_file_path()?;
+    log::debug!("Reading config from `{}`", path.display());
+
+    let file = fs_err::read_to_string(&path)?;
+    let mut document = file.parse::<Document>()?;
+
+    f(&mut document)?;
+
+    log::debug!("Writing config to `{}`", path.display());
+    fs_err::write(path, document.to_string_in_original_order())?;
+    Ok(())
+}
+
+pub fn expect_file_path() -> crate::Result<PathBuf> {
+    file_path().ok_or_else(|| {
+        crate::Error::from_message(format!(
+            "the `{}` environment variable must be set",
+            FILE_PATH_VAR
+        ))
+    })
 }
 
 pub fn file_path() -> Option<PathBuf> {

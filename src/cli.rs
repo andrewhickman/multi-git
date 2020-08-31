@@ -1,7 +1,7 @@
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
-use crate::{edit, exec, pull, resolve, status};
+use crate::{clone, edit, exec, pull, resolve, status};
 
 pub fn parse_args() -> Args {
     Args::from_args()
@@ -47,4 +47,6 @@ pub enum Command {
     Resolve(resolve::ResolveArgs),
     #[structopt(name = "exec", no_version)]
     Exec(exec::ExecArgs),
+    #[structopt(name = "clone", no_version)]
+    Clone(clone::CloneArgs),
 }

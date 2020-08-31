@@ -53,6 +53,12 @@ impl Repository {
         Ok(Repository { repo })
     }
 
+    pub fn clone(path: &Path, repo: &str) -> crate::Result<Self> {
+        let repo = git2::Repository::clone(repo, path)?;
+        log::debug!("cloned repo at `{}`", path.display());
+        Ok(Repository { repo })
+    }
+
     pub fn try_open(path: &Path) -> crate::Result<Option<Self>> {
         match git2::Repository::open(path) {
             Ok(repo) => {

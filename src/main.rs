@@ -1,5 +1,6 @@
 mod alias;
 mod cli;
+mod clone;
 mod config;
 mod edit;
 mod error;
@@ -42,5 +43,6 @@ fn run(out: &Output, args: &cli::Args) -> Result<()> {
         cli::Command::Pull(pull_args) => pull::run(out, &args, pull_args, &config),
         cli::Command::Resolve(resolve_args) => resolve::run(out, &args, resolve_args, &config),
         cli::Command::Exec(exec_args) => exec::run(out, &args, exec_args, &config),
+        cli::Command::Clone(clone_args) => clone::run(out, &args, clone_args, &config),
     }
 }

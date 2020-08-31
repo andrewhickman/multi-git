@@ -32,15 +32,7 @@ pub fn run(args: &cli::Args, edit_args: &EditArgs, config: &Config) -> crate::Re
     let path = if let Some(name) = &edit_args.target {
         alias::resolve(name, args, config)?
     } else if edit_args.config {
-        match config::file_path() {
-            Some(path) => path,
-            None => {
-                return Err(crate::Error::from_message(format!(
-                    "the `{}` environment variable must be set",
-                    config::FILE_PATH_VAR
-                )))
-            }
-        }
+        config::expect_file_path()?
     } else {
         unreachable!()
     };

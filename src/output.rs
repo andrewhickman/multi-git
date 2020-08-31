@@ -1,4 +1,5 @@
 use std::cmp;
+use std::fmt::Display;
 use std::io::{self, Write as _};
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
@@ -52,6 +53,14 @@ impl Output {
         write(&mut stdout)?;
         writeln!(stdout)?;
         Ok(())
+    }
+
+    pub fn writeln_fmt(&self, msg: impl Display) {
+        self.writeln(|stdout| {
+            write!(stdout, "{}", msg)?;
+            Ok(())
+        })
+        .ok();
     }
 
     pub fn writeln_error(&self, err: &crate::Error) {
