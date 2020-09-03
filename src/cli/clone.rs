@@ -117,7 +117,7 @@ impl UrlOrPath {
     fn dir_name(&self) -> Option<&OsStr> {
         match self {
             UrlOrPath::Url(url) => url.path_segments()?.rev().find_map(|segment| {
-                let name = segment.strip_suffix(".git")?;
+                let name = segment.strip_suffix(".git").unwrap_or(segment);
                 if name.is_empty() {
                     None
                 } else {
@@ -165,6 +165,7 @@ fn test_dir_name() {
         "/path/to/repo.git",
         "file:///path/to/repo.git/",
         "file:///path/to/repo.git",
+        "https://github.com/repo"
     ];
 
     for case in cases {
