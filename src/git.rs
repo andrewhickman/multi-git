@@ -53,8 +53,39 @@ impl Repository {
         Ok(Repository { repo })
     }
 
-    pub fn clone(path: &Path, repo: &str) -> crate::Result<Self> {
-        let repo = git2::Repository::clone(repo, path)?;
+    pub fn clone<F>(
+        path: &Path,
+        repo: &str,
+        settings: &Settings,
+        mut progress_callback: F,
+    ) -> crate::Result<Self>
+    where
+        F: FnMut(git2::Progress),
+    {
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.transfer_progress(|progress| {
+            progress_callback(progress);
+            true
+        });
+
+        let mut credentials_state = CredentialsState::default();
+        callbacks.credentials(|url, username_from_url, allowed_types| {
+            credentials_state.get(
+                settings,
+                &git2::Config::open_default()?,
+                url,
+                username_from_url,
+                allowed_types,
+            )
+        });
+
+        let mut fetch_options = git2::FetchOptions::new();
+        fetch_options.remote_callbacks(callbacks);
+
+        let repo = git2::build::RepoBuilder::new()
+            .fetch_options(fetch_options)
+            .clone(repo, path)?;
+
         log::debug!("cloned repo at `{}`", path.display());
         Ok(Repository { repo })
     }

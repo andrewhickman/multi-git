@@ -9,6 +9,7 @@ use url::Url;
 use crate::config::{self, Config};
 use crate::output::Output;
 use crate::{alias, cli, git};
+use crate::cli::pull::PullLineContent;
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Clone a new repo", no_version)]
@@ -64,8 +65,18 @@ pub fn run(
         ));
     };
 
+    let relative_path = config.get_relative_path(&path);
+    let settings = config.settings(&relative_path);
+
     out.writeln_fmt(format!("cloning into `{}`", path.display()));
-    git::Repository::clone(&path, clone_args.repo.as_ref())?;
+
+    let block = out.block()?;
+    let line = block.add_line(PullLineContent::new(relative_path.to_owned()));
+    git::Repository::clone(&path, clone_args.repo.as_ref(), &settings, |progress| {
+        line.content().tick(progress);
+        line.update();
+    })?;
+    drop(block);
 
     if let Some(alias) = &clone_args.alias {
         out.writeln_fmt(format_args!(
@@ -86,13 +97,9 @@ pub fn run(
                 )));
             }
 
-            let relative_path = path
-                .strip_prefix(&config.root)
-                .unwrap_or(&path)
+            aliases[alias] = toml_edit::value(relative_path 
                 .to_str()
-                .ok_or_else(|| crate::Error::from_message(format!("path is invalid UTF-16")))?;
-
-            aliases[alias] = toml_edit::value(relative_path);
+                .ok_or_else(|| crate::Error::from_message(format!("path is invalid UTF-16")))?);
 
             Ok(())
         })?;

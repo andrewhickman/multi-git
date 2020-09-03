@@ -45,7 +45,7 @@ pub fn run(
     )
 }
 
-struct PullLineContent {
+pub(super) struct PullLineContent {
     relative_path: PathBuf,
     state: Mutex<PullState>,
 }
@@ -58,14 +58,22 @@ enum PullState {
 }
 
 impl PullLineContent {
+    pub fn new(relative_path: PathBuf) -> Self {
+        PullLineContent {
+            relative_path,
+            state: Mutex::new(PullState::Pending),
+        }
+    }
+
+    pub fn tick(&self, progress: git2::Progress<'_>) {
+        self.state.lock().unwrap().tick(progress)
+    }
+
     fn build<'out, 'block>(
         block: &'block output::Block<'out>,
         entry: &walk::Entry,
     ) -> output::Line<'out, 'block, Self> {
-        block.add_line(PullLineContent {
-            relative_path: entry.relative_path.clone(),
-            state: Mutex::new(PullState::Pending),
-        })
+        block.add_line(PullLineContent::new(entry.relative_path.clone()))
     }
 
     fn update<'out, 'block>(entry: &walk::Entry, line: output::Line<'out, 'block, Self>) {
@@ -80,7 +88,7 @@ impl PullLineContent {
             .and_then(|status| {
                 let line = line.clone();
                 entry.repo.pull(&entry.settings, &status, move |progress| {
-                    line.content().state.lock().unwrap().tick(progress);
+                    line.content().tick(progress);
                     line.update();
                 })
             });
@@ -92,7 +100,7 @@ impl PullLineContent {
 }
 
 impl PullState {
-    fn tick(&mut self, progress: git2::Progress<'_>) {
+    pub fn tick(&mut self, progress: git2::Progress<'_>) {
         match *self {
             PullState::Pending => {
                 *self = PullState::Downloading(ProgressBar::new());
