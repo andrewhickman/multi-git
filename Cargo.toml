@@ -29,7 +29,7 @@ bstr = "0.2.13"
 strsim = "0.10.0"
 num_cpus = "1.13.0"
 url = "2.1.1"
-toml_edit = "0.2.0"
+toml_edit = { git = "https://github.com/ironyman/toml_edit", branch = "dotted2" }
 fn-error-context = "0.1.1"
 
 [patch.crates-io]
