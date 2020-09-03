@@ -201,7 +201,7 @@ impl Repository {
         mut progress_callback: F,
     ) -> crate::Result<PullOutcome>
     where
-        F: FnMut(git2::Progress) -> crate::Result<bool>,
+        F: FnMut(git2::Progress),
     {
         let branch_name = match &settings.default_branch {
             Some(default_branch) => default_branch,
@@ -217,14 +217,10 @@ impl Repository {
 
         let repo_config = self.repo.config()?;
 
-        let mut result = Ok(());
         let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.transfer_progress(|progress| match progress_callback(progress) {
-            Ok(result) => result,
-            Err(err) => {
-                result = Err(err);
-                false
-            }
+        callbacks.transfer_progress(|progress| {
+            progress_callback(progress);
+            true
         });
 
         let mut credentials_state = CredentialsState::default();
@@ -255,7 +251,6 @@ impl Repository {
             ),
             Some("multi-git: fetching"),
         )?;
-        result?;
 
         if !status.upstream.exists() {
             return Err(crate::Error::from_message("no upstream branch"));

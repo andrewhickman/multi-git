@@ -82,7 +82,6 @@ impl PullLineContent {
                 entry.repo.pull(&entry.settings, &status, move |progress| {
                     line.content().state.lock().unwrap().tick(progress);
                     line.update();
-                    Ok(true)
                 })
             });
 
