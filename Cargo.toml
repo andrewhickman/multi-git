@@ -32,8 +32,5 @@ url = "2.1.1"
 toml_edit = { git = "https://github.com/ironyman/toml_edit", branch = "dotted2" }
 fn-error-context = "0.1.1"
 
-[patch.crates-io]
-libgit2-sys = { git = "https://github.com/andrewhickman/git2-rs", rev = "93a3bf0e2fb02c37da3ea8da60ee92af21ab694b" }
-
 [build-dependencies]
 vergen = "3.1.0"
