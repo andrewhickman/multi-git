@@ -16,7 +16,7 @@ pub struct RepositoryStatus {
     pub head: HeadStatus,
     pub upstream: UpstreamStatus,
     pub working_tree: WorkingTreeStatus,
-    pub default_branch: String,
+    pub default_branch: Option<String>,
 }
 
 pub struct HeadStatus {
@@ -107,12 +107,15 @@ impl Repository {
         }
     }
 
-    pub fn status(&self, settings: &Settings) -> crate::Result<(RepositoryStatus, git2::Remote)> {
+    pub fn status(
+        &self,
+        settings: &Settings,
+    ) -> crate::Result<(RepositoryStatus, Option<git2::Remote>)> {
         let head = self.head_status()?;
         let upstream = self.upstream_status(&head)?;
         let working_tree = self.working_tree_status()?;
 
-        let (default_branch, remote) = self.default_branch(settings)?;
+        let (default_branch, remote) = self.try_default_branch(settings);
 
         Ok((
             RepositoryStatus {
@@ -234,12 +237,17 @@ impl Repository {
         &self,
         settings: &Settings,
         status: &RepositoryStatus,
-        remote: &mut git2::Remote,
+        remote: Option<git2::Remote>,
         mut progress_callback: F,
     ) -> crate::Result<PullOutcome>
     where
         F: FnMut(git2::Progress),
     {
+        let mut remote = match remote {
+            Some(remote) => remote,
+            None => self.default_remote(settings)?,
+        };
+
         let repo_config = self.repo.config()?;
 
         let mut callbacks = git2::RemoteCallbacks::new();
@@ -287,7 +295,11 @@ impl Repository {
             ));
         }
 
-        if !status.on_default_branch() {
+        let default_branch = match &status.default_branch {
+            Some(name) => name.clone(),
+            None => self.default_branch_for_remote(&remote)?,
+        };
+        if !status.head.on_branch(&default_branch) {
             return Err(crate::Error::from_message("not on default branch"));
         }
 
@@ -298,7 +310,7 @@ impl Repository {
             .target()
             .expect("branch is not direct reference");
         let fetch_head = self.repo.annotated_commit_from_fetchhead(
-            &status.default_branch,
+            &default_branch,
             remote.url().expect("remote url is invalid utf-8"),
             &upstream_oid,
         )?;
@@ -306,13 +318,13 @@ impl Repository {
         let (merge_analysis, _) = self.repo.merge_analysis(&[&fetch_head])?;
 
         if merge_analysis.is_up_to_date() {
-            Ok(PullOutcome::UpToDate(status.default_branch.clone()))
+            Ok(PullOutcome::UpToDate(default_branch))
         } else if merge_analysis.is_unborn() {
             self.create_unborn(status, fetch_head)?;
-            Ok(PullOutcome::CreatedUnborn(status.default_branch.clone()))
+            Ok(PullOutcome::CreatedUnborn(default_branch))
         } else if merge_analysis.is_fast_forward() {
             self.fast_forward(fetch_head)?;
-            Ok(PullOutcome::FastForwarded(status.default_branch.clone()))
+            Ok(PullOutcome::FastForwarded(default_branch))
         } else {
             Err(crate::Error::from_message("cannot fast-forward"))
         }
@@ -417,52 +429,53 @@ impl Repository {
         Ok(self.repo.find_remote(remote_name)?)
     }
 
-    fn default_branch_for_remote(
-        &self,
-        settings: &Settings,
-        remote: &git2::Remote,
-    ) -> Result<String, crate::Error> {
-        if let Some(name) = &settings.default_branch {
-            Ok(name.to_owned())
-        } else {
-            let name = remote.default_branch()?;
-            match str::from_utf8(name.as_ref()) {
-                Ok(name) => Ok(name
-                    .strip_prefix(REFS_HEADS_NAMESPACE)
-                    .unwrap_or(name)
-                    .to_owned()),
-                Err(_) => Err(crate::Error::from_message(
-                    "default branch name is invalid utf-8",
-                )),
-            }
+    fn default_branch_for_remote(&self, remote: &git2::Remote) -> Result<String, crate::Error> {
+        let name = remote.default_branch()?;
+        match str::from_utf8(name.as_ref()) {
+            Ok(name) => Ok(name
+                .strip_prefix(REFS_HEADS_NAMESPACE)
+                .unwrap_or(name)
+                .to_owned()),
+            Err(_) => Err(crate::Error::from_message(
+                "default branch name is invalid utf-8",
+            )),
         }
     }
 
-    fn default_branch(&self, settings: &Settings) -> Result<(String, git2::Remote), crate::Error> {
-        let mut remote = self.default_remote(settings)?;
+    fn try_default_branch(&self, settings: &Settings) -> (Option<String>, Option<git2::Remote>) {
+        if let Some(name) = &settings.default_branch {
+            return (Some(name.to_owned()), None);
+        }
 
-        let mut callbacks = git2::RemoteCallbacks::new();
-        let mut credentials_state = CredentialsState::default();
-        callbacks.credentials(|url, username_from_url, allowed_types| {
-            credentials_state.get(
-                settings,
-                &git2::Config::open_default()?,
-                url,
-                username_from_url,
-                allowed_types,
-            )
-        });
+        self.default_remote(settings)
+            .and_then(|mut remote| {
+                let mut callbacks = git2::RemoteCallbacks::new();
+                let mut credentials_state = CredentialsState::default();
+                callbacks.credentials(|url, username_from_url, allowed_types| {
+                    credentials_state.get(
+                        settings,
+                        &git2::Config::open_default()?,
+                        url,
+                        username_from_url,
+                        allowed_types,
+                    )
+                });
 
-        let _ = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)?;
+                let _ = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)?;
 
-        let default_branch = self.default_branch_for_remote(settings, &remote)?;
-        Ok((default_branch, remote))
+                let default_branch = self.default_branch_for_remote(&remote)?;
+                Ok((Some(default_branch), Some(remote)))
+            })
+            .unwrap_or((None, None))
     }
 }
 
 impl RepositoryStatus {
     pub fn on_default_branch(&self) -> bool {
-        self.head.on_branch(&self.default_branch)
+        match &self.default_branch {
+            Some(name) => self.head.on_branch(&name),
+            None => false,
+        }
     }
 }
 
