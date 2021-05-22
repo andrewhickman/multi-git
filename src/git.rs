@@ -26,7 +26,7 @@ pub struct HeadStatus {
 pub enum HeadStatusKind {
     Unborn,
     Detached,
-    Branch { oid: git2::Oid },
+    Branch,
 }
 
 pub enum UpstreamStatus {
@@ -125,11 +125,9 @@ impl Repository {
             Some(name) if name.starts_with(REFS_HEADS_FILE.as_bytes()) => {
                 let name = name[REFS_HEADS_FILE.len()..].as_bstr().to_owned();
                 match head.resolve() {
-                    Ok(branch) => Ok(HeadStatus {
+                    Ok(_) => Ok(HeadStatus {
                         name,
-                        kind: HeadStatusKind::Branch {
-                            oid: branch.peel(git2::ObjectType::Any)?.id(),
-                        },
+                        kind: HeadStatusKind::Branch,
                     }),
                     Err(err)
                         if err.class() == git2::ErrorClass::Reference
@@ -406,7 +404,7 @@ impl Repository {
 impl HeadStatus {
     fn is_branch(&self) -> bool {
         match self.kind {
-            HeadStatusKind::Branch { .. } => true,
+            HeadStatusKind::Branch => true,
             _ => false,
         }
     }
@@ -420,12 +418,10 @@ impl HeadStatus {
 
     pub fn on_default_branch(&self, settings: &Settings) -> bool {
         match &self.kind {
-            HeadStatusKind::Branch { .. } | HeadStatusKind::Unborn => {
-                match &settings.default_branch {
-                    Some(branch) => branch.as_bytes() == self.name,
-                    None => true,
-                }
-            }
+            HeadStatusKind::Branch | HeadStatusKind::Unborn => match &settings.default_branch {
+                Some(branch) => branch.as_bytes() == self.name,
+                None => true,
+            },
             HeadStatusKind::Detached => false,
         }
     }
@@ -434,7 +430,7 @@ impl HeadStatus {
 impl fmt::Display for HeadStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
-            HeadStatusKind::Unborn | HeadStatusKind::Branch { .. } => write!(f, "{}", self.name),
+            HeadStatusKind::Unborn | HeadStatusKind::Branch => write!(f, "{}", self.name),
             HeadStatusKind::Detached => write!(f, "({})", self.name),
         }
     }
