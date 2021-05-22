@@ -107,18 +107,22 @@ impl Repository {
         }
     }
 
-    pub fn status(&self, settings: &Settings) -> crate::Result<RepositoryStatus> {
+    pub fn status(&self, settings: &Settings) -> crate::Result<(RepositoryStatus, git2::Remote)> {
         let head = self.head_status()?;
         let upstream = self.upstream_status(&head)?;
         let working_tree = self.working_tree_status()?;
-        let default_branch = self.default_branch(settings)?;
 
-        Ok(RepositoryStatus {
-            head,
-            upstream,
-            working_tree,
-            default_branch,
-        })
+        let (default_branch, remote) = self.default_branch(settings)?;
+
+        Ok((
+            RepositoryStatus {
+                head,
+                upstream,
+                working_tree,
+                default_branch,
+            },
+            remote,
+        ))
     }
 
     fn head_status(&self) -> Result<HeadStatus, git2::Error> {
@@ -230,13 +234,12 @@ impl Repository {
         &self,
         settings: &Settings,
         status: &RepositoryStatus,
+        remote: &mut git2::Remote,
         mut progress_callback: F,
     ) -> crate::Result<PullOutcome>
     where
         F: FnMut(git2::Progress),
     {
-        let mut remote = self.default_remote(settings)?;
-
         let repo_config = self.repo.config()?;
 
         let mut callbacks = git2::RemoteCallbacks::new();
@@ -435,7 +438,7 @@ impl Repository {
         }
     }
 
-    fn default_branch(&self, settings: &Settings) -> Result<String, crate::Error> {
+    fn default_branch(&self, settings: &Settings) -> Result<(String, git2::Remote), crate::Error> {
         let mut remote = self.default_remote(settings)?;
 
         let mut callbacks = git2::RemoteCallbacks::new();
@@ -452,7 +455,8 @@ impl Repository {
 
         let _ = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)?;
 
-        self.default_branch_for_remote(settings, &remote)
+        let default_branch = self.default_branch_for_remote(settings, &remote)?;
+        Ok((default_branch, remote))
     }
 }
 

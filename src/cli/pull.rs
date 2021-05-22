@@ -85,12 +85,14 @@ impl PullLineContent {
             .repo
             .status(&entry.settings)
             .map_err(|err| crate::Error::with_context(err, "failed to get repo status"))
-            .and_then(|status| {
+            .and_then(|(status, mut remote)| {
                 let line = line.clone();
-                entry.repo.pull(&entry.settings, &status, move |progress| {
-                    line.content().tick(progress);
-                    line.update();
-                })
+                entry
+                    .repo
+                    .pull(&entry.settings, &status, &mut remote, move |progress| {
+                        line.content().tick(progress);
+                        line.update();
+                    })
             });
 
         *line.content().state.lock().unwrap() = PullState::Finished(outcome);
