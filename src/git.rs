@@ -166,7 +166,7 @@ impl Repository {
         } else {
             return Ok(UpstreamStatus::None);
         };
-        let local_oid = local_branch.get().peel(git2::ObjectType::Any)?.id();
+        let local_oid = local_branch.get().peel_to_commit()?.id();
 
         let upstream_branch = match local_branch.upstream() {
             Ok(branch) => branch,
@@ -184,7 +184,7 @@ impl Repository {
                 };
             }
         };
-        let upstream_oid = upstream_branch.get().peel(git2::ObjectType::Any)?.id();
+        let upstream_oid = upstream_branch.get().peel_to_commit()?.id();
 
         let (ahead, behind) = self.repo.graph_ahead_behind(local_oid, upstream_oid)?;
 
