@@ -6,10 +6,10 @@ use std::str::FromStr;
 use structopt::StructOpt;
 use url::Url;
 
+use crate::cli::pull::PullLineContent;
 use crate::config::{self, Config};
 use crate::output::Output;
 use crate::{alias, cli, git};
-use crate::cli::pull::PullLineContent;
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Clone a new repo", no_version)]
@@ -97,9 +97,10 @@ pub fn run(
                 )));
             }
 
-            aliases[alias] = toml_edit::value(relative_path 
-                .to_str()
-                .ok_or_else(|| crate::Error::from_message(format!("path is invalid UTF-16")))?);
+            aliases[alias] =
+                toml_edit::value(relative_path.to_str().ok_or_else(|| {
+                    crate::Error::from_message(format!("path is invalid UTF-16"))
+                })?);
 
             Ok(())
         })?;
@@ -165,7 +166,7 @@ fn test_dir_name() {
         "/path/to/repo.git",
         "file:///path/to/repo.git/",
         "file:///path/to/repo.git",
-        "https://github.com/repo"
+        "https://github.com/repo",
     ];
 
     for case in cases {
