@@ -237,12 +237,7 @@ impl Repository {
             None => return Err(crate::Error::from_message("no default branch")),
         };
 
-        let remote_name = match &settings.default_remote {
-            Some(default_branch) => default_branch,
-            None => return Err(crate::Error::from_message("no default remote")),
-        };
-
-        let mut remote = self.repo.find_remote(remote_name)?;
+        let mut remote = self.default_remote(settings)?;
 
         let repo_config = self.repo.config()?;
 
@@ -398,6 +393,27 @@ impl Repository {
         let head = self.repo.head()?;
         debug_assert!(head.is_branch());
         Ok(git2::Branch::wrap(head))
+    }
+
+    fn default_remote(&self, settings: &Settings) -> Result<git2::Remote, crate::Error> {
+        let remote_list = self.repo.remotes()?;
+        let remote_name = match &settings.default_remote {
+            Some(default_branch) => default_branch,
+            None => match remote_list.len() {
+                0 => return Err(crate::Error::from_message("no remotes")),
+                1 => match remote_list.get(0) {
+                    Some(name) => name,
+                    None => {
+                        return Err(crate::Error::from_message(
+                            "default remote name is not valid utf-8",
+                        ))
+                    }
+                },
+                _ => return Err(crate::Error::from_message("no default remote")),
+            },
+        };
+
+        Ok(self.repo.find_remote(remote_name)?)
     }
 }
 
