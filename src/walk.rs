@@ -1,14 +1,10 @@
-mod skip_range;
-
 use std::fs;
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
-use rayon::prelude::*;
 
-use self::skip_range::SkipRange;
 use crate::config::{Config, Settings};
 use crate::output::{Block, Line, LineContent, Output};
 use crate::{cli, git};
@@ -198,11 +194,14 @@ fn walk_update<'out, 'block, C, U>(
 {
     init_thread_pool(args);
 
-    rayon::iter::split(SkipRange::new(lines), SkipRange::split).for_each(|line_range| {
-        for (entry, line) in line_range {
-            update(entry, line.clone());
+    let update = &update;
+    rayon::in_place_scope_fifo(move |scope| {
+        for (entry, line) in lines {
+            scope.spawn_fifo(move |_| {
+                update(&*entry, line.clone());
+            });
         }
-    })
+    });
 }
 
 impl Entry {
