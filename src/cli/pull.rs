@@ -83,7 +83,7 @@ impl PullLineContent {
 
         let outcome = entry
             .repo
-            .status()
+            .status(&entry.settings)
             .map_err(|err| crate::Error::with_context(err, "failed to get repo status"))
             .and_then(|status| {
                 let line = line.clone();

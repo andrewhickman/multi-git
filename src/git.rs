@@ -1,12 +1,12 @@
-use std::fmt;
 use std::path::Path;
+use std::{fmt, str};
 
 use bstr::{BString, ByteSlice};
 
 use crate::config::Settings;
 
 const HEAD_FILE: &str = "HEAD";
-const REFS_HEADS_FILE: &str = "refs/heads/";
+const REFS_HEADS_NAMESPACE: &str = "refs/heads/";
 
 pub struct Repository {
     repo: git2::Repository,
@@ -16,6 +16,7 @@ pub struct RepositoryStatus {
     pub head: HeadStatus,
     pub upstream: UpstreamStatus,
     pub working_tree: WorkingTreeStatus,
+    pub default_branch: String,
 }
 
 pub struct HeadStatus {
@@ -106,15 +107,17 @@ impl Repository {
         }
     }
 
-    pub fn status(&self) -> crate::Result<RepositoryStatus> {
+    pub fn status(&self, settings: &Settings) -> crate::Result<RepositoryStatus> {
         let head = self.head_status()?;
         let upstream = self.upstream_status(&head)?;
         let working_tree = self.working_tree_status()?;
+        let default_branch = self.default_branch(settings)?;
 
         Ok(RepositoryStatus {
             head,
             upstream,
             working_tree,
+            default_branch,
         })
     }
 
@@ -122,8 +125,8 @@ impl Repository {
         let head = self.repo.find_reference(HEAD_FILE)?;
         match head.symbolic_target_bytes() {
             // HEAD points to a branch
-            Some(name) if name.starts_with(REFS_HEADS_FILE.as_bytes()) => {
-                let name = name[REFS_HEADS_FILE.len()..].as_bstr().to_owned();
+            Some(name) if name.starts_with(REFS_HEADS_NAMESPACE.as_bytes()) => {
+                let name = name[REFS_HEADS_NAMESPACE.len()..].as_bstr().to_owned();
                 match head.resolve() {
                     Ok(_) => Ok(HeadStatus {
                         name,
@@ -232,11 +235,6 @@ impl Repository {
     where
         F: FnMut(git2::Progress),
     {
-        let branch_name = match &settings.default_branch {
-            Some(default_branch) => default_branch,
-            None => return Err(crate::Error::from_message("no default branch")),
-        };
-
         let mut remote = self.default_remote(settings)?;
 
         let repo_config = self.repo.config()?;
@@ -264,8 +262,8 @@ impl Repository {
             Some(true) => git2::FetchPrune::On,
         };
 
-        remote.fetch(
-            &[branch_name],
+        remote.fetch::<String>(
+            &[],
             Some(
                 &mut git2::FetchOptions::new()
                     .remote_callbacks(callbacks)
@@ -286,7 +284,7 @@ impl Repository {
             ));
         }
 
-        if !status.head.on_default_branch(settings) {
+        if !status.on_default_branch() {
             return Err(crate::Error::from_message("not on default branch"));
         }
 
@@ -297,7 +295,7 @@ impl Repository {
             .target()
             .expect("branch is not direct reference");
         let fetch_head = self.repo.annotated_commit_from_fetchhead(
-            branch_name,
+            &status.default_branch,
             remote.url().expect("remote url is invalid utf-8"),
             &upstream_oid,
         )?;
@@ -305,13 +303,13 @@ impl Repository {
         let (merge_analysis, _) = self.repo.merge_analysis(&[&fetch_head])?;
 
         if merge_analysis.is_up_to_date() {
-            Ok(PullOutcome::UpToDate(branch_name.clone()))
+            Ok(PullOutcome::UpToDate(status.default_branch.clone()))
         } else if merge_analysis.is_unborn() {
             self.create_unborn(status, fetch_head)?;
-            Ok(PullOutcome::CreatedUnborn(branch_name.clone()))
+            Ok(PullOutcome::CreatedUnborn(status.default_branch.clone()))
         } else if merge_analysis.is_fast_forward() {
             self.fast_forward(fetch_head)?;
-            Ok(PullOutcome::FastForwarded(branch_name.clone()))
+            Ok(PullOutcome::FastForwarded(status.default_branch.clone()))
         } else {
             Err(crate::Error::from_message("cannot fast-forward"))
         }
@@ -323,7 +321,7 @@ impl Repository {
         fetch_commit: git2::AnnotatedCommit,
     ) -> Result<(), git2::Error> {
         debug_assert!(status.head.is_unborn());
-        let branch_name = format!("{}{}", REFS_HEADS_FILE, status.head.name);
+        let branch_name = format!("{}{}", REFS_HEADS_NAMESPACE, status.head.name);
         let log_message = format!(
             "multi-git: creating unborn branch {} at {}",
             branch_name,
@@ -374,7 +372,7 @@ impl Repository {
         }
 
         self.repo.branch(name, &commit, false)?;
-        let ref_name = format!("{}{}", REFS_HEADS_FILE, name);
+        let ref_name = format!("{}{}", REFS_HEADS_NAMESPACE, name);
         self.checkout(&ref_name)?;
         Ok(())
     }
@@ -405,7 +403,7 @@ impl Repository {
                     Some(name) => name,
                     None => {
                         return Err(crate::Error::from_message(
-                            "default remote name is not valid utf-8",
+                            "default remote name is invalid utf-8",
                         ))
                     }
                 },
@@ -414,6 +412,53 @@ impl Repository {
         };
 
         Ok(self.repo.find_remote(remote_name)?)
+    }
+
+    fn default_branch_for_remote(
+        &self,
+        settings: &Settings,
+        remote: &git2::Remote,
+    ) -> Result<String, crate::Error> {
+        if let Some(name) = &settings.default_branch {
+            Ok(name.to_owned())
+        } else {
+            let name = remote.default_branch()?;
+            match str::from_utf8(name.as_ref()) {
+                Ok(name) => Ok(name
+                    .strip_prefix(REFS_HEADS_NAMESPACE)
+                    .unwrap_or(name)
+                    .to_owned()),
+                Err(_) => Err(crate::Error::from_message(
+                    "default branch name is invalid utf-8",
+                )),
+            }
+        }
+    }
+
+    fn default_branch(&self, settings: &Settings) -> Result<String, crate::Error> {
+        let mut remote = self.default_remote(settings)?;
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        let mut credentials_state = CredentialsState::default();
+        callbacks.credentials(|url, username_from_url, allowed_types| {
+            credentials_state.get(
+                settings,
+                &git2::Config::open_default()?,
+                url,
+                username_from_url,
+                allowed_types,
+            )
+        });
+
+        let _ = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)?;
+
+        self.default_branch_for_remote(settings, &remote)
+    }
+}
+
+impl RepositoryStatus {
+    pub fn on_default_branch(&self) -> bool {
+        self.head.on_branch(&self.default_branch)
     }
 }
 
@@ -432,12 +477,9 @@ impl HeadStatus {
         }
     }
 
-    pub fn on_default_branch(&self, settings: &Settings) -> bool {
+    pub fn on_branch(&self, name: impl AsRef<[u8]>) -> bool {
         match &self.kind {
-            HeadStatusKind::Branch | HeadStatusKind::Unborn => match &settings.default_branch {
-                Some(branch) => branch.as_bytes() == self.name,
-                None => true,
-            },
+            HeadStatusKind::Branch | HeadStatusKind::Unborn => &self.name == name.as_ref(),
             HeadStatusKind::Detached => false,
         }
     }

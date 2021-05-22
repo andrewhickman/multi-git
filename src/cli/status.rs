@@ -7,7 +7,7 @@ use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForeground
 use crossterm::terminal::{self, Clear, ClearType};
 use structopt::StructOpt;
 
-use crate::config::{Config, Settings};
+use crate::config::Config;
 use crate::output::{self, LineContent, Output};
 use crate::walk::{self, walk_with_output};
 use crate::{alias, cli, git};
@@ -45,7 +45,6 @@ pub fn run(
 }
 
 struct StatusLineContent {
-    settings: Settings,
     relative_path: PathBuf,
     status: Mutex<Option<crate::Result<git::RepositoryStatus>>>,
 }
@@ -56,7 +55,6 @@ impl StatusLineContent {
         entry: &walk::Entry,
     ) -> output::Line<'out, 'block, Self> {
         block.add_line(StatusLineContent {
-            settings: entry.settings.clone(),
             relative_path: entry.relative_path.clone(),
             status: Mutex::new(None),
         })
@@ -64,7 +62,7 @@ impl StatusLineContent {
 
     fn update<'out, 'block>(entry: &walk::Entry, line: output::Line<'out, 'block, Self>) {
         line.update();
-        let status_result = entry.repo.status();
+        let status_result = entry.repo.status(&entry.settings);
         *line.content().status.lock().unwrap() = Some(status_result);
         line.finish();
     }
@@ -125,7 +123,7 @@ impl LineContent for StatusLineContent {
                 }
 
                 crossterm::queue!(stdout, SetForegroundColor(Color::DarkCyan))?;
-                if !status.head.on_default_branch(&self.settings) {
+                if !status.on_default_branch() {
                     crossterm::queue!(stdout, SetAttribute(Attribute::Bold))?;
                 }
                 write!(stdout, "{}", status.head)?;
