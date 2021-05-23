@@ -361,11 +361,8 @@ impl Repository {
             .get_mut()
             .set_target(fetch_commit.id(), &log_message)?;
         debug_assert!(branch.is_head());
-        self.repo.checkout_head(Some(
-            &mut git2::build::CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true),
-        ))?;
+        self.repo
+            .checkout_head(Some(&mut git2::build::CheckoutBuilder::new().force()))?;
         Ok(())
     }
 
@@ -394,11 +391,8 @@ impl Repository {
 
     fn checkout(&self, ref_name: &str) -> Result<(), git2::Error> {
         self.repo.set_head(&ref_name)?;
-        self.repo.checkout_head(Some(
-            &mut git2::build::CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true),
-        ))?;
+        self.repo
+            .checkout_head(Some(&mut git2::build::CheckoutBuilder::new().force()))?;
         Ok(())
     }
 
