@@ -21,6 +21,8 @@ pub struct PullArgs {
         help = "the path or alias of the repo(s) to pull"
     )]
     target: Option<String>,
+    #[structopt(long, help = "whether to switch to the default branch before pulling")]
+    switch: bool,
 }
 
 pub fn run(
@@ -41,7 +43,7 @@ pub fn run(
         config,
         root,
         PullLineContent::build,
-        PullLineContent::update,
+        |entry, line| PullLineContent::update(entry, line, pull_args.switch),
     )
 }
 
@@ -76,7 +78,11 @@ impl PullLineContent {
         block.add_line(PullLineContent::new(entry.relative_path.clone()))
     }
 
-    fn update<'out, 'block>(entry: &walk::Entry, line: &output::Line<'out, 'block, Self>) {
+    fn update<'out, 'block>(
+        entry: &walk::Entry,
+        line: &output::Line<'out, 'block, Self>,
+        switch: bool,
+    ) {
         log::debug!("pulling repo at `{}`", entry.relative_path.display());
 
         let outcome = entry
@@ -87,7 +93,7 @@ impl PullLineContent {
                 let line = line.clone();
                 entry
                     .repo
-                    .pull(&entry.settings, &status, remote, move |progress| {
+                    .pull(&entry.settings, &status, remote, switch, move |progress| {
                         line.content().tick(progress);
                         line.update();
                     })

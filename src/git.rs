@@ -238,6 +238,7 @@ impl Repository {
         settings: &Settings,
         status: &RepositoryStatus,
         remote: Option<git2::Remote>,
+        switch: bool,
         mut progress_callback: F,
     ) -> crate::Result<PullOutcome>
     where
@@ -285,10 +286,6 @@ impl Repository {
             Some("multi-git: fetching"),
         )?;
 
-        if !status.upstream.exists() {
-            return Err(crate::Error::from_message("no upstream branch"));
-        }
-
         if status.working_tree.is_dirty() {
             return Err(crate::Error::from_message(
                 "working tree has uncommitted changes",
@@ -300,7 +297,11 @@ impl Repository {
             None => self.default_branch_for_remote(&remote)?,
         };
         if !status.head.on_branch(&default_branch) {
-            return Err(crate::Error::from_message("not on default branch"));
+            if switch {
+                self.checkout(&format!("{}{}", REFS_HEADS_NAMESPACE, default_branch))?;
+            } else {
+                return Err(crate::Error::from_message("not on default branch"));
+            }
         }
 
         let upstream_oid = self
@@ -501,15 +502,6 @@ impl fmt::Display for HeadStatus {
         match self.kind {
             HeadStatusKind::Unborn | HeadStatusKind::Branch => write!(f, "{}", self.name),
             HeadStatusKind::Detached => write!(f, "({})", self.name),
-        }
-    }
-}
-
-impl UpstreamStatus {
-    pub fn exists(&self) -> bool {
-        match self {
-            UpstreamStatus::Upstream { .. } => true,
-            UpstreamStatus::None | UpstreamStatus::Gone => false,
         }
     }
 }
