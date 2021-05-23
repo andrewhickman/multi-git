@@ -73,8 +73,8 @@ pub fn run(
         out,
         config,
         root,
-        |block, entry| ExecLineContent::build(block, entry, shell, exec_args),
-        ExecLineContent::update,
+        ExecLineContent::build,
+        |entry, line| ExecLineContent::update(entry, line, shell, exec_args),
     )
 }
 
@@ -148,7 +148,7 @@ struct ExecLineContent {
 }
 
 enum ExecState {
-    NotStarted(Command),
+    Pending,
     Running(u32),
     Finished(ExitStatus),
     Error(crate::Error),
@@ -158,9 +158,19 @@ impl ExecLineContent {
     fn build<'out, 'block>(
         block: &'block output::Block<'out>,
         entry: &walk::Entry,
+    ) -> output::Line<'out, 'block, Self> {
+        block.add_line(ExecLineContent {
+            relative_path: entry.relative_path.clone(),
+            state: Arc::new(Mutex::new(ExecState::Pending)),
+        })
+    }
+
+    fn update<'out, 'block>(
+        entry: &walk::Entry,
+        line: &output::Line<'out, 'block, Self>,
         shell: Shell,
         exec_args: &ExecArgs,
-    ) -> output::Line<'out, 'block, Self> {
+    ) {
         let mut command = shell.command(&exec_args.command);
         command.current_dir(&entry.path);
 
@@ -168,14 +178,7 @@ impl ExecLineContent {
         command.stdout(Stdio::null());
         command.stderr(Stdio::null());
 
-        block.add_line(ExecLineContent {
-            relative_path: entry.relative_path.clone(),
-            state: Arc::new(Mutex::new(ExecState::NotStarted(command))),
-        })
-    }
-
-    fn update<'out, 'block>(_: &walk::Entry, line: &output::Line<'out, 'block, Self>) {
-        let child = line.content().state.lock().unwrap().spawn();
+        let child = line.content().state.lock().unwrap().spawn(command);
         if let Some(mut child) = child {
             line.update();
             let wait_result = child.wait();
@@ -185,12 +188,7 @@ impl ExecLineContent {
 }
 
 impl ExecState {
-    fn spawn(&mut self) -> Option<Child> {
-        let command = match self {
-            ExecState::NotStarted(command) => command,
-            _ => unreachable!(),
-        };
-
+    fn spawn(&mut self, mut command: Command) -> Option<Child> {
         match command.spawn() {
             Ok(child) => {
                 *self = ExecState::Running(child.id());
@@ -232,7 +230,7 @@ impl LineContent for ExecLineContent {
         let state = self.state.lock().unwrap();
 
         match &*state {
-            ExecState::NotStarted(_) => (),
+            ExecState::Pending => (),
             ExecState::Running(id) => {
                 write!(stdout, "Running process ")?;
                 crossterm::queue!(stdout, SetAttribute(Attribute::Bold))?;
