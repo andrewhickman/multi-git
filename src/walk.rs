@@ -1,7 +1,6 @@
 use std::fs;
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
-use std::sync::Once;
 
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 
@@ -14,18 +13,6 @@ pub struct Entry {
     pub relative_path: PathBuf,
     pub repo: git::Repository,
     pub settings: Settings,
-}
-
-fn init_thread_pool(args: &cli::Args) {
-    static INIT: Once = Once::new();
-
-    INIT.call_once(|| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(args.jobs)
-            .thread_name(|index| format!("rayon-work-thread-{}", index))
-            .build_global()
-            .unwrap()
-    });
 }
 
 pub fn walk_with_output<'out, C, B, U>(
@@ -192,10 +179,14 @@ fn walk_update<'out, 'block, C, U>(
     C: LineContent,
     U: Fn(&Entry, Line<'out, 'block, C>) + Sync,
 {
-    init_thread_pool(args);
+    let thread_pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(args.jobs)
+        .thread_name(|index| format!("rayon-work-thread-{}", index))
+        .build()
+        .unwrap();
 
     let update = &update;
-    rayon::in_place_scope_fifo(move |scope| {
+    thread_pool.in_place_scope_fifo(move |scope| {
         for (entry, line) in lines {
             scope.spawn_fifo(move |_| {
                 update(&*entry, line.clone());
