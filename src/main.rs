@@ -28,7 +28,10 @@ fn main() {
 }
 
 fn run(out: &Output, args: &cli::Args) -> Result<()> {
-    let config = config::parse().map_err(|err| Error::with_context(err, "failed to get config"))?;
+    let config = config::parse(|ignored_path| {
+        out.writeln_warning(format_args!("unused configuration key: {}", ignored_path))
+    })
+    .map_err(|err| Error::with_context(err, "failed to get config"))?;
     log::trace!("{:#?}", config);
 
     match &args.command {

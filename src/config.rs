@@ -10,13 +10,21 @@ use toml_edit::Document;
 pub const FILE_PATH_VAR: &str = "MULTIGIT_CONFIG_PATH";
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub root: PathBuf,
     #[serde(default)]
     pub default_shell: Shell,
-    #[serde(flatten)]
-    pub default_settings: Settings,
+
+    // Default settings. These fields are duplicated here because of the limitations of serde's #[flatten] attribute
+    // https://github.com/dtolnay/serde-ignored/issues/10
+    pub default_branch: Option<String>,
+    pub default_remote: Option<String>,
+    pub ssh: Option<SshSettings>,
+    pub editor: Option<String>,
+    pub ignore: Option<bool>,
+    pub prune: Option<bool>,
+
     #[serde(default)]
     pub aliases: BTreeMap<String, PathBuf>,
     #[serde(default)]
@@ -35,10 +43,10 @@ pub enum Shell {
     PowershellCore,
 }
 
-pub fn parse() -> crate::Result<Config> {
+pub fn parse(on_ignored: impl FnMut(serde_ignored::Path)) -> crate::Result<Config> {
     match file_path() {
         Some(path) => {
-            let config = parse_file(path)?;
+            let config = parse_file(path, on_ignored)?;
             config
                 .validate()
                 .map_err(|err| crate::Error::with_context(err, "invalid config"))?;
@@ -76,11 +84,13 @@ pub fn file_path() -> Option<PathBuf> {
     env::var_os(FILE_PATH_VAR).map(PathBuf::from)
 }
 
-fn parse_file(path: PathBuf) -> crate::Result<Config> {
+fn parse_file(path: PathBuf, on_ignored: impl FnMut(serde_ignored::Path)) -> crate::Result<Config> {
     log::debug!("Reading config from `{}`", path.display());
 
-    let reader = fs_err::read_to_string(path)?;
-    let config: Config = toml::from_str(&reader)
+    let text = fs_err::read_to_string(path)?;
+    let mut deserializer = toml::Deserializer::new(&text);
+
+    let config = serde_ignored::deserialize(&mut deserializer, on_ignored)
         .map_err(|err| crate::Error::with_context(err, "failed to parse TOML"))?;
 
     Ok(config)
@@ -91,7 +101,7 @@ impl Config {
     where
         P: AsRef<Path>,
     {
-        let mut result = self.default_settings.clone();
+        let mut result = self.default_settings();
         self.settings.get(&mut result, relative_path.as_ref());
         log::debug!(
             "got merged settings for path `{}`: {:?}",
@@ -106,6 +116,16 @@ impl Config {
     }
 
     fn default() -> crate::Result<Config> {
+        let Settings {
+            default_branch,
+            default_remote,
+            ssh,
+            editor,
+            ignore,
+            prune,
+            glob: _,
+        } = Default::default();
+
         Ok(Config {
             root: env::current_dir().map_err(|err| {
                 crate::Error::with_context(err, "failed to get current directory")
@@ -113,8 +133,25 @@ impl Config {
             default_shell: Shell::default(),
             aliases: BTreeMap::new(),
             settings: SettingsMatcher::default(),
-            default_settings: Settings::default(),
+            default_branch,
+            default_remote,
+            ssh,
+            editor,
+            ignore,
+            prune,
         })
+    }
+
+    fn default_settings(&self) -> Settings {
+        Settings {
+            default_branch: self.default_branch.clone(),
+            default_remote: self.default_remote.clone(),
+            ssh: self.ssh.clone(),
+            editor: self.editor.clone(),
+            ignore: self.ignore.clone(),
+            prune: self.prune.clone(),
+            glob: String::new(),
+        }
     }
 
     fn validate(&self) -> crate::Result<()> {
@@ -148,7 +185,7 @@ impl SettingsMatcher {
 }
 
 #[derive(Debug, Default, Deserialize, Clone)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Settings {
     pub default_branch: Option<String>,
     pub default_remote: Option<String>,

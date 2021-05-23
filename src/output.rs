@@ -4,8 +4,14 @@ use std::io::{self, Write as _};
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
 
-use crossterm::cursor::{self, MoveToColumn, MoveUp};
-use crossterm::terminal;
+use crossterm::{
+    cursor::{self, MoveToColumn, MoveUp},
+    style::{SetAttribute, SetForegroundColor},
+};
+use crossterm::{
+    style::{Attribute, Color, ResetColor},
+    terminal,
+};
 
 pub struct Output {
     stdout: io::Stdout,
@@ -57,6 +63,23 @@ impl Output {
 
     pub fn writeln_fmt(&self, msg: impl Display) {
         self.writeln(|stdout| {
+            write!(stdout, "{}", msg)?;
+            Ok(())
+        })
+        .ok();
+    }
+
+    pub fn writeln_warning(&self, msg: impl Display) {
+        self.writeln(|stdout| {
+            crossterm::queue!(
+                stdout,
+                SetForegroundColor(Color::Yellow),
+                SetAttribute(Attribute::Bold)
+            )?;
+            write!(stdout, "warning: ")?;
+            stdout.flush()?;
+            crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
+
             write!(stdout, "{}", msg)?;
             Ok(())
         })

@@ -31,6 +31,7 @@ num_cpus = "1.13.0"
 url = "2.2.2"
 toml_edit = { git = "https://github.com/ironyman/toml_edit", branch = "dotted2" }
 fn-error-context = "0.1.2"
+serde_ignored = "0.1.2"
 
 [build-dependencies.vergen]
 version = "5.1.6"
