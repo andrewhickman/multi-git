@@ -26,11 +26,11 @@ pub fn walk_with_output<'out, C, B, U>(
 where
     C: LineContent + 'out,
     B: for<'block> FnMut(&'block Block<'out>, &Entry) -> Line<'out, 'block, C>,
-    U: for<'block> Fn(&Entry, Line<'out, 'block, C>) + Sync,
+    U: for<'block> Fn(&Entry, &Line<'out, 'block, C>) + Sync,
 {
     let block = output.block()?;
     let mut lines = walk_build(&block, config, path, build);
-    walk_update(args, &mut lines, update);
+    walk_update(args, &block, &mut lines, update);
     Ok(())
 }
 
@@ -173,11 +173,12 @@ where
 
 fn walk_update<'out, 'block, C, U>(
     args: &cli::Args,
+    block: &'block Block<'out>,
     lines: &mut [(Entry, Line<'out, 'block, C>)],
     update: U,
 ) where
     C: LineContent,
-    U: Fn(&Entry, Line<'out, 'block, C>) + Sync,
+    U: Fn(&Entry, &Line<'out, 'block, C>) + Sync,
 {
     let thread_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(args.jobs)
@@ -187,9 +188,11 @@ fn walk_update<'out, 'block, C, U>(
 
     let update = &update;
     thread_pool.in_place_scope_fifo(move |scope| {
+        block.update_all().ok();
         for (entry, line) in lines {
             scope.spawn_fifo(move |_| {
-                update(&*entry, line.clone());
+                update(&*entry, line);
+                line.finish();
             });
         }
     });

@@ -60,11 +60,9 @@ impl StatusLineContent {
         })
     }
 
-    fn update<'out, 'block>(entry: &walk::Entry, line: output::Line<'out, 'block, Self>) {
-        line.update();
+    fn update<'out, 'block>(entry: &walk::Entry, line: &output::Line<'out, 'block, Self>) {
         let status_result = entry.repo.status(&entry.settings).map(|(status, _)| status);
         *line.content().status.lock().unwrap() = Some(status_result);
-        line.finish();
     }
 }
 

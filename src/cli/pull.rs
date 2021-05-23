@@ -76,10 +76,8 @@ impl PullLineContent {
         block.add_line(PullLineContent::new(entry.relative_path.clone()))
     }
 
-    fn update<'out, 'block>(entry: &walk::Entry, line: output::Line<'out, 'block, Self>) {
+    fn update<'out, 'block>(entry: &walk::Entry, line: &output::Line<'out, 'block, Self>) {
         log::debug!("pulling repo at `{}`", entry.relative_path.display());
-
-        line.update();
 
         let outcome = entry
             .repo
@@ -96,8 +94,6 @@ impl PullLineContent {
             });
 
         *line.content().state.lock().unwrap() = PullState::Finished(outcome);
-
-        line.finish();
     }
 }
 

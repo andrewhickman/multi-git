@@ -116,6 +116,15 @@ impl<'out> Block<'out> {
         self.add_finished_line(ErrorLineContent { error })
     }
 
+    pub fn update_all(&self) -> crossterm::Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        let mut stdout = self.output.stdout.lock();
+
+        inner.write_all(&mut stdout)?;
+
+        Ok(())
+    }
+
     fn update(&self, index: usize) -> crossterm::Result<()> {
         if let Ok(mut inner) = self.inner.try_lock() {
             let mut stdout = self.output.stdout.lock();
@@ -220,16 +229,6 @@ impl<'out, 'block, C> Line<'out, 'block, C> {
 
     pub fn finish(&self) {
         self.block.finish(self.index).ok();
-    }
-}
-
-impl<'out, 'block, C> Clone for Line<'out, 'block, C> {
-    fn clone(&self) -> Self {
-        Line {
-            block: self.block,
-            index: self.index,
-            content: self.content.clone(),
-        }
     }
 }
 
