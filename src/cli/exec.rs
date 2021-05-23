@@ -1,16 +1,29 @@
-use std::borrow::Cow;
-use std::ffi::OsString;
-use std::process::Command;
-use std::str::FromStr;
+use std::{
+    borrow::Cow,
+    io::{self, Write as _},
+};
+use std::{
+    ffi::OsString,
+    process::{Child, ExitStatus},
+    sync::{Arc, Mutex},
+};
+use std::{path::PathBuf, process::Command};
+use std::{process::Stdio, str::FromStr};
 
+use crossterm::{
+    style::{Attribute, SetAttribute},
+    terminal::{self, Clear, ClearType},
+};
 use serde::de::IntoDeserializer;
 use serde::Deserialize;
 use structopt::StructOpt;
 
-use crate::config::{Config, Shell};
-use crate::output::Output;
-use crate::walk::walk;
-use crate::{alias, cli};
+use crate::{
+    alias, cli,
+    config::{Config, Shell},
+    output::{self, LineContent, Output},
+    walk::{self, walk_with_output},
+};
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Run a command in one or more repos", no_version)]
@@ -54,45 +67,15 @@ pub fn run(
         Cow::Borrowed(&*config.root)
     };
 
-    let mut command = match shell.command() {
-        Some(mut command) => {
-            command.args(&exec_args.command);
-            command
-        }
-        None => {
-            let mut command = Command::new(&exec_args.command[0]);
-            command.args(&exec_args.command[1..]);
-            command
-        }
-    };
-
-    let mut join_handles = Vec::new();
-    walk(
+    // let mut join_handles = Vec::new();
+    walk_with_output(
+        args,
+        out,
         config,
         root,
-        |entry| {
-            command.current_dir(&entry.path);
-            join_handles.push((entry, command.spawn()));
-        },
-        |_| {},
-        |err| out.writeln_error(&err),
-    );
-
-    for (entry, handle) in join_handles {
-        let status = handle
-            .map_err(|err| crate::Error::with_context(err, "failed to spawn command"))?
-            .wait()
-            .map_err(|err| crate::Error::with_context(err, "failed to run command"))?;
-        if !status.success() {
-            out.writeln_error(&crate::Error::from_message(format!(
-                "{}: process exited with {}",
-                entry.relative_path.display(),
-                status
-            )));
-        }
-    }
-
-    Ok(())
+        |block, entry| ExecLineContent::build(block, entry, shell, exec_args),
+        ExecLineContent::update,
+    )
 }
 
 impl Shell {
@@ -106,28 +89,34 @@ impl Shell {
         "powershell-core",
     ];
 
-    pub fn command(self) -> Option<Command> {
+    pub fn command(self, args: &[OsString]) -> Command {
+        assert!(!args.is_empty());
+
         match self {
-            Shell::None => None,
+            Shell::None => {
+                let mut command = Command::new(&args[0]);
+                command.args(&args[1..]);
+                command
+            }
             Shell::Bash => {
                 let mut command = Command::new("/bin/sh");
-                command.arg("-c");
-                Some(command)
+                command.arg("-c").args(args);
+                command
             }
             Shell::Cmd => {
                 let mut command = Command::new("cmd");
-                command.arg("/S").arg("/C");
-                Some(command)
+                command.arg("/S").arg("/C").args(args);
+                command
             }
             Shell::Powershell => {
                 let mut command = Command::new("powershell");
-                command.arg("-Command");
-                Some(command)
+                command.arg("-Command").args(args);
+                command
             }
             Shell::PowershellCore => {
                 let mut command = Command::new("pwsh");
-                command.arg("-Command");
-                Some(command)
+                command.arg("-Command").args(args);
+                command
             }
         }
     }
@@ -150,5 +139,114 @@ impl FromStr for Shell {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Shell::deserialize(s.into_deserializer())
+    }
+}
+
+struct ExecLineContent {
+    relative_path: PathBuf,
+    state: Arc<Mutex<ExecState>>,
+}
+
+enum ExecState {
+    NotStarted(Command),
+    Running(u32),
+    Finished(ExitStatus),
+    Error(crate::Error),
+}
+
+impl ExecLineContent {
+    fn build<'out, 'block>(
+        block: &'block output::Block<'out>,
+        entry: &walk::Entry,
+        shell: Shell,
+        exec_args: &ExecArgs,
+    ) -> output::Line<'out, 'block, Self> {
+        let mut command = shell.command(&exec_args.command);
+        command.current_dir(&entry.path);
+
+        command.stdin(Stdio::null());
+        command.stdout(Stdio::null());
+        command.stderr(Stdio::null());
+
+        block.add_line(ExecLineContent {
+            relative_path: entry.relative_path.clone(),
+            state: Arc::new(Mutex::new(ExecState::NotStarted(command))),
+        })
+    }
+
+    fn update<'out, 'block>(_: &walk::Entry, line: &output::Line<'out, 'block, Self>) {
+        let child = line.content().state.lock().unwrap().spawn();
+        if let Some(mut child) = child {
+            line.update();
+            let wait_result = child.wait();
+            line.content().state.lock().unwrap().finish(wait_result);
+        }
+    }
+}
+
+impl ExecState {
+    fn spawn(&mut self) -> Option<Child> {
+        let command = match self {
+            ExecState::NotStarted(command) => command,
+            _ => unreachable!(),
+        };
+
+        match command.spawn() {
+            Ok(child) => {
+                *self = ExecState::Running(child.id());
+                Some(child)
+            }
+            Err(err) => {
+                let error = crate::Error::with_context(err, "failed to spawn command");
+                *self = ExecState::Error(error);
+                None
+            }
+        }
+    }
+
+    fn finish(&mut self, status: io::Result<ExitStatus>) {
+        match status {
+            Ok(status) => {
+                *self = ExecState::Finished(status);
+            }
+            Err(err) => {
+                *self = ExecState::Error(crate::Error::with_context(err, "failed to run command"));
+            }
+        }
+    }
+}
+
+impl LineContent for ExecLineContent {
+    fn write(&self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
+        crossterm::queue!(stdout, Clear(ClearType::CurrentLine))?;
+
+        let (cols, _) = terminal::size()?;
+
+        write!(
+            stdout,
+            "{:padding$} ",
+            self.relative_path.display(),
+            padding = cols as usize / 2
+        )?;
+
+        let state = self.state.lock().unwrap();
+
+        match &*state {
+            ExecState::NotStarted(_) => (),
+            ExecState::Running(id) => {
+                write!(stdout, "Running process ")?;
+                crossterm::queue!(stdout, SetAttribute(Attribute::Bold))?;
+                write!(stdout, "{}", id)?;
+                crossterm::queue!(stdout, SetAttribute(Attribute::Reset))?;
+            }
+            ExecState::Finished(status) => {
+                write!(stdout, "{}", status)?;
+            }
+            ExecState::Error(error) => {
+                error.write(stdout)?;
+            }
+        }
+
+        Ok(())
     }
 }
