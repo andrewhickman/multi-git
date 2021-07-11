@@ -1,7 +1,8 @@
 use std::path::Path;
 use std::{fmt, str};
 
-use bstr::{BString, ByteSlice};
+use bstr::ByteSlice;
+use serde::Serialize;
 
 use crate::config::Settings;
 
@@ -12,6 +13,7 @@ pub struct Repository {
     repo: git2::Repository,
 }
 
+#[derive(Serialize)]
 pub struct RepositoryStatus {
     pub head: HeadStatus,
     pub upstream: UpstreamStatus,
@@ -19,28 +21,36 @@ pub struct RepositoryStatus {
     pub default_branch: Option<String>,
 }
 
+#[derive(Serialize)]
 pub struct HeadStatus {
-    pub name: BString,
+    pub name: String,
     pub kind: HeadStatusKind,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum HeadStatusKind {
     Unborn,
     Detached,
     Branch,
 }
 
+#[derive(Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
 pub enum UpstreamStatus {
     None,
     Upstream { ahead: usize, behind: usize },
     Gone,
 }
 
+#[derive(Serialize)]
 pub struct WorkingTreeStatus {
     pub working_changed: bool,
     pub index_changed: bool,
 }
 
+#[derive(Serialize)]
+#[serde(tag = "state", content = "branch", rename_all = "snake_case")]
 pub enum PullOutcome {
     UpToDate(String),
     CreatedUnborn(String),
@@ -133,7 +143,7 @@ impl Repository {
         match head.symbolic_target_bytes() {
             // HEAD points to a branch
             Some(name) if name.starts_with(REFS_HEADS_NAMESPACE.as_bytes()) => {
-                let name = name[REFS_HEADS_NAMESPACE.len()..].as_bstr().to_owned();
+                let name = name[REFS_HEADS_NAMESPACE.len()..].as_bstr().to_string();
                 match head.resolve() {
                     Ok(_) => Ok(HeadStatus {
                         name,
@@ -491,7 +501,7 @@ impl HeadStatus {
 
     pub fn on_branch(&self, name: impl AsRef<[u8]>) -> bool {
         match &self.kind {
-            HeadStatusKind::Branch | HeadStatusKind::Unborn => &self.name == name.as_ref(),
+            HeadStatusKind::Branch | HeadStatusKind::Unborn => self.name.as_bytes() == name.as_ref(),
             HeadStatusKind::Detached => false,
         }
     }

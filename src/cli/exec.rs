@@ -15,7 +15,7 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 use serde::de::IntoDeserializer;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
 use crate::{
@@ -246,5 +246,31 @@ impl LineContent for ExecLineContent {
         }
 
         Ok(())
+    }
+
+    fn write_json(&self, stdout: &mut io::StdoutLock) -> serde_json::Result<()> {
+        #[derive(Serialize)]
+        #[serde(tag = "kind", rename_all = "snake_case")]
+        enum JsonExec<'a> {
+            Exec {
+                code: Option<i32>,
+            },
+            Error {
+                #[serde(flatten)]
+                error: &'a crate::Error,
+            },
+        }
+
+        let state = self.state.lock().unwrap();
+
+        let json = match &*state {
+            ExecState::Pending | ExecState::Running(_) => unreachable!(),
+            ExecState::Finished(status) => JsonExec::Exec {
+                code: status.code(),
+            },
+            ExecState::Error(error) => JsonExec::Error { error },
+        };
+
+        serde_json::to_writer(stdout, &json)
     }
 }

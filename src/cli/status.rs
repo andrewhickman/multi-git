@@ -3,6 +3,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use serde::Serialize;
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use crossterm::terminal::{self, Clear, ClearType};
 use structopt::StructOpt;
@@ -46,7 +47,7 @@ pub fn run(
 
 struct StatusLineContent {
     relative_path: PathBuf,
-    status: Mutex<Option<crate::Result<git::RepositoryStatus>>>,
+    state: Mutex<Option<crate::Result<git::RepositoryStatus>>>,
 }
 
 impl StatusLineContent {
@@ -56,13 +57,13 @@ impl StatusLineContent {
     ) -> output::Line<'out, 'block, Self> {
         block.add_line(StatusLineContent {
             relative_path: entry.relative_path.clone(),
-            status: Mutex::new(None),
+            state: Mutex::new(None),
         })
     }
 
     fn update<'out, 'block>(entry: &walk::Entry, line: &output::Line<'out, 'block, Self>) {
         let status_result = entry.repo.status(&entry.settings).map(|(status, _)| status);
-        *line.content().status.lock().unwrap() = Some(status_result);
+        *line.content().state.lock().unwrap() = Some(status_result);
     }
 }
 
@@ -79,7 +80,7 @@ impl LineContent for StatusLineContent {
             padding = cols as usize / 2
         )?;
 
-        let status = self.status.lock().unwrap();
+        let status = self.state.lock().unwrap();
         match &*status {
             Some(Ok(status)) => {
                 let (text, color) = match status.upstream {
@@ -135,5 +136,30 @@ impl LineContent for StatusLineContent {
         }
 
         Ok(())
+    }
+
+    fn write_json(&self, stdout: &mut io::StdoutLock) -> serde_json::Result<()> {
+        #[derive(Serialize)]
+        #[serde(tag = "kind", rename_all = "snake_case")]
+        enum JsonStatus<'a> {
+            Status {
+                #[serde(flatten)]
+                status: &'a git::RepositoryStatus,
+            },
+            Error {
+                #[serde(flatten)]
+                error: &'a crate::Error,
+            },
+        }
+
+        let state = self.state.lock().unwrap();
+
+        let json = match &*state {
+            None => unreachable!(),
+            Some(Ok(status)) => JsonStatus::Status { status },
+            Some(Err(error)) => JsonStatus::Error { error},
+        };
+
+        serde_json::to_writer(stdout, &json)
     }
 }

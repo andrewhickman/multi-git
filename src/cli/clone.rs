@@ -68,7 +68,7 @@ pub fn run(
     let relative_path = config.get_relative_path(&path);
     let settings = config.settings(&relative_path);
 
-    out.writeln_fmt(format!("cloning into `{}`", path.display()));
+    out.writeln_message(format!("cloning into `{}`", path.display()));
 
     let block = out.block()?;
     let line = block.add_line(PullLineContent::new(relative_path.to_owned()));
@@ -79,7 +79,7 @@ pub fn run(
     drop(block);
 
     if let Some(alias) = &clone_args.alias {
-        out.writeln_fmt(format_args!(
+        out.writeln_message(format_args!(
             "creating alias `{} = \"{}\"`",
             alias,
             path.display()

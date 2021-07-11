@@ -4,6 +4,8 @@ use std::io::{self, Write as _};
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
 
+use serde::Serialize;
+
 use crossterm::{
     cursor::{self, MoveToColumn, MoveUp},
     style::{SetAttribute, SetForegroundColor},
@@ -15,6 +17,7 @@ use crossterm::{
 
 pub struct Output {
     stdout: io::Stdout,
+    json: bool,
 }
 
 pub struct Block<'out> {
@@ -36,6 +39,7 @@ struct BlockEntry<'out> {
 /// A single line of output
 pub trait LineContent: Send + Sync {
     fn write(&self, stdout: &mut io::StdoutLock) -> crossterm::Result<()>;
+    fn write_json(&self, stdout: &mut io::StdoutLock) -> serde_json::Result<()>;
 }
 
 pub struct Line<'out, 'block, C> {
@@ -45,13 +49,14 @@ pub struct Line<'out, 'block, C> {
 }
 
 impl Output {
-    pub fn new() -> Self {
+    pub fn new(json: bool) -> Self {
         Output {
             stdout: io::stdout(),
+            json,
         }
     }
 
-    pub fn writeln<F>(&self, write: F) -> crate::Result<()>
+    fn writeln<F>(&self, write: F) -> crate::Result<()>
     where
         F: FnOnce(&mut io::StdoutLock) -> crossterm::Result<()>,
     {
@@ -61,12 +66,32 @@ impl Output {
         Ok(())
     }
 
-    pub fn writeln_fmt(&self, msg: impl Display) {
-        self.writeln(|stdout| {
-            write!(stdout, "{}", msg)?;
-            Ok(())
-        })
-        .ok();
+    fn writeln_json(&self, msg: &impl Serialize) -> io::Result<()> {
+        let mut stdout = self.stdout.lock();
+        serde_json::to_writer(&mut stdout, msg)?;
+        writeln!(stdout)?;
+        Ok(())
+    }
+
+    pub fn writeln_message(&self, msg: impl Display) {
+        #[derive(Serialize)]
+        struct JsonMessage {
+            kind: &'static str,
+            message: String,
+        }
+
+        if self.json {
+            self.writeln_json(&JsonMessage {
+                kind: "message",
+                message: msg.to_string(),
+            }).ok();
+        } else {
+            self.writeln(|stdout| {
+                write!(stdout, "{}", msg)?;
+                Ok(())
+            })
+            .ok();
+        }
     }
 
     pub fn writeln_warning(&self, msg: impl Display) {
@@ -91,8 +116,10 @@ impl Output {
     }
 
     pub fn block<'out>(&'out self) -> crate::Result<Block<'out>> {
-        terminal::enable_raw_mode()?;
-        crossterm::queue!(self.stdout.lock(), cursor::Hide, cursor::DisableBlinking)?;
+        if !self.json {
+            terminal::enable_raw_mode()?;
+            crossterm::queue!(self.stdout.lock(), cursor::Hide, cursor::DisableBlinking)?;
+        }
 
         let (_, rows) = terminal::size()?;
 
@@ -140,19 +167,23 @@ impl<'out> Block<'out> {
     }
 
     pub fn update_all(&self) -> crossterm::Result<()> {
-        let mut inner = self.inner.lock().unwrap();
-        let mut stdout = self.output.stdout.lock();
+        if !self.output.json {
+            let mut inner = self.inner.lock().unwrap();
+            let mut stdout = self.output.stdout.lock();
 
-        inner.write_all(&mut stdout)?;
+            inner.write_all(&mut stdout)?;
+        }
 
         Ok(())
     }
 
     fn update(&self, index: usize) -> crossterm::Result<()> {
-        if let Ok(mut inner) = self.inner.try_lock() {
-            let mut stdout = self.output.stdout.lock();
+        if !self.output.json {
+            if let Ok(mut inner) = self.inner.try_lock() {
+                let mut stdout = self.output.stdout.lock();
 
-            inner.update(&mut stdout, index)?;
+                inner.update(&mut stdout, index)?;
+            }
         }
 
         Ok(())
@@ -162,7 +193,11 @@ impl<'out> Block<'out> {
         let mut inner = self.inner.lock().unwrap();
         let mut stdout = self.output.stdout.lock();
 
-        inner.finish(&mut stdout, index)?;
+        if self.output.json {
+            inner.finish_json(&mut stdout, index)?;
+        } else {
+            inner.finish(&mut stdout, index)?;
+        }
 
         Ok(())
     }
@@ -213,6 +248,19 @@ impl<'out> BlockInner<'out> {
         Ok(())
     }
 
+    fn finish_json(&mut self, stdout: &mut io::StdoutLock, index: usize) -> io::Result<()> {
+        self.entries[index].finished = true;
+
+        for entry in self.entries[index..]
+            .iter()
+            .take_while(|entry| entry.finished)
+        {
+            entry.content.write_json(stdout)?;
+            writeln!(stdout)?;
+        }
+        Ok(())
+    }
+
     fn write_all(&mut self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
         for index in self.range.clone() {
             self.entries[index].content.write(stdout)?;
@@ -225,19 +273,21 @@ impl<'out> BlockInner<'out> {
 
 impl<'out> Drop for Block<'out> {
     fn drop(&mut self) {
-        let mut inner = self.inner.lock().unwrap();
-        let mut stdout = self.output.stdout.lock();
+        if !self.output.json {
+            let mut inner = self.inner.lock().unwrap();
+            let mut stdout = self.output.stdout.lock();
 
-        inner.write_all(&mut stdout).ok();
+            inner.write_all(&mut stdout).ok();
 
-        crossterm::queue!(
-            &mut stdout,
-            MoveToColumn(0),
-            cursor::Show,
-            cursor::EnableBlinking
-        )
-        .ok();
-        terminal::disable_raw_mode().ok();
+            crossterm::queue!(
+                &mut stdout,
+                MoveToColumn(0),
+                cursor::Show,
+                cursor::EnableBlinking
+            )
+            .ok();
+            terminal::disable_raw_mode().ok();
+        }
     }
 }
 
@@ -262,5 +312,19 @@ struct ErrorLineContent {
 impl LineContent for ErrorLineContent {
     fn write(&self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
         self.error.write(stdout)
+    }
+
+    fn write_json(&self, stdout: &mut io::StdoutLock) -> serde_json::Result<()> {
+        #[derive(Serialize)]
+        struct JsonError<'a> {
+            kind: &'static str,
+            #[serde(flatten)]
+            error: &'a crate::Error,
+        }
+
+        serde_json::to_writer(stdout, &JsonError {
+            kind: "error",
+            error: &self.error,
+        })
     }
 }

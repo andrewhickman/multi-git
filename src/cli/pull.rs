@@ -5,6 +5,7 @@ use std::sync::Mutex;
 
 use crossterm::style::{Color, ResetColor, SetForegroundColor};
 use crossterm::terminal::{self, Clear, ClearType};
+use serde::Serialize;
 use structopt::StructOpt;
 
 use crate::config::Config;
@@ -190,5 +191,32 @@ impl LineContent for PullLineContent {
         }
 
         Ok(())
+    }
+
+    fn write_json(&self, stdout: &mut io::StdoutLock) -> serde_json::Result<()> {
+        #[derive(Serialize)]
+        #[serde(tag = "kind", rename_all = "snake_case")]
+        enum JsonPull<'a> {
+            Pull {
+                #[serde(flatten)]
+                outcome: &'a git::PullOutcome,
+            },
+            Error {
+                #[serde(flatten)]
+                error: &'a crate::Error,
+            },
+        }
+
+        let state = self.state.lock().unwrap();
+
+        let json = match &*state {
+            PullState::Pending | PullState::Downloading(_) | PullState::Indexing(_) => {
+                unreachable!()
+            }
+            PullState::Finished(Ok(outcome)) => JsonPull::Pull { outcome },
+            PullState::Finished(Err(error)) => JsonPull::Error { error },
+        };
+
+        serde_json::to_writer(stdout, &json)
     }
 }

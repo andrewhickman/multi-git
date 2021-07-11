@@ -2,6 +2,7 @@ use std::io::Write;
 use std::{fmt, io};
 
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
+use serde::{Serialize, Serializer};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -98,6 +99,12 @@ impl From<Context> for Error {
     }
 }
 
+impl From<serde_json::Error> for Error {
+    fn from(ctx: serde_json::Error) -> Error {
+        Error { inner: ctx.into() }
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.inner.fmt(f)
@@ -107,6 +114,28 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         self.inner.source()
+    }
+}
+
+impl Serialize for Error {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        struct JsonError {
+            message: String,
+            source: Option<Box<JsonError>>,
+        }
+
+        fn to_json_error(err: &dyn std::error::Error) -> JsonError {
+            JsonError {
+                message: err.to_string(),
+                source: err.source().map(to_json_error).map(Box::new),
+            }
+        }
+
+        to_json_error(self).serialize(serializer)
     }
 }
 

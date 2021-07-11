@@ -3,6 +3,7 @@ use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
+use serde::Serialize;
 
 use crate::config::{Config, Settings};
 use crate::output::{Block, Line, LineContent, Output};
@@ -241,5 +242,19 @@ impl LineContent for DirectoryLineContent {
         stdout.flush()?;
         crossterm::queue!(stdout, ResetColor, SetAttribute(Attribute::Reset))?;
         Ok(())
+    }
+
+    fn write_json(&self, stdout: &mut io::StdoutLock) -> serde_json::Result<()> {
+        #[derive(Serialize)]
+        #[serde(tag = "kind", rename_all = "snake_case")]
+        enum JsonDirectory {
+            Directory {
+                path: String,
+            },
+        }
+
+        serde_json::to_writer(stdout, &JsonDirectory::Directory {
+            path: self.path.display().to_string(),
+        })
     }
 }

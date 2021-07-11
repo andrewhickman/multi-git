@@ -19,7 +19,7 @@ fn main() {
     let args = cli::parse_args();
     log::trace!("{:#?}", args);
 
-    let out = Output::new();
+    let out = Output::new(args.json);
 
     if let Err(err) = run(&out, &args) {
         out.writeln_error(&err);

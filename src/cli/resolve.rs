@@ -18,6 +18,6 @@ pub fn run(
     config: &Config,
 ) -> crate::Result<()> {
     let path = alias::resolve(&resolve_args.target, args, config)?;
-    out.writeln_fmt(path.display());
+    out.writeln_message(path.display());
     Ok(())
 }

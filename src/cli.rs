@@ -32,15 +32,18 @@ const VERSION: &str = env!("VERGEN_GIT_SHA");
 pub struct Args {
     #[structopt(subcommand)]
     pub command: Command,
-    #[structopt(long, short = "A", help = "Disable aliases")]
+    #[structopt(long, global = true, short = "A", help = "Disable aliases")]
     pub no_alias: bool,
     #[structopt(
         long,
         short,
+        global = true,
         help = "Number of threads to use. If set to 0, uses the number of available CPUs",
         default_value = "0"
     )]
     pub jobs: usize,
+    #[structopt(long, global = true, help = "Print output in JSON Lines format")]
+    pub json: bool,
 }
 
 #[derive(Debug, StructOpt)]
