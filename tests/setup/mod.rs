@@ -44,6 +44,11 @@ impl Context {
         }
     }
 
+    #[allow(unused)]
+    pub fn temp_dir(&self) -> &TempDir {
+        &self.temp_dir
+    }
+
     pub fn working_dir(&self) -> &Path {
         &self.working_dir
     }

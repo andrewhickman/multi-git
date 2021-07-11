@@ -9,4 +9,4 @@ CD /upstream
 GIT commit --message "Commit 2" --allow-empty
 
 CD /local
-WRITE file.txt change
+WRITE file.txt changed

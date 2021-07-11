@@ -11,4 +11,4 @@ GIT add file.txt
 GIT commit --message "Commit 2" --allow-empty
 
 CD /local
-WRITE file.txt change2
+WRITE file.txt original
