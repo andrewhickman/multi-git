@@ -248,13 +248,14 @@ impl LineContent for DirectoryLineContent {
         #[derive(Serialize)]
         #[serde(tag = "kind", rename_all = "snake_case")]
         enum JsonDirectory {
-            Directory {
-                path: String,
-            },
+            Directory { path: String },
         }
 
-        serde_json::to_writer(stdout, &JsonDirectory::Directory {
-            path: self.path.display().to_string(),
-        })
+        serde_json::to_writer(
+            stdout,
+            &JsonDirectory::Directory {
+                path: self.path.display().to_string(),
+            },
+        )
     }
 }

@@ -501,7 +501,9 @@ impl HeadStatus {
 
     pub fn on_branch(&self, name: impl AsRef<[u8]>) -> bool {
         match &self.kind {
-            HeadStatusKind::Branch | HeadStatusKind::Unborn => self.name.as_bytes() == name.as_ref(),
+            HeadStatusKind::Branch | HeadStatusKind::Unborn => {
+                self.name.as_bytes() == name.as_ref()
+            }
             HeadStatusKind::Detached => false,
         }
     }

@@ -294,6 +294,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "float-cmp"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1267f4ac4f343772758f7b1bdcbe767c218bbab93bb432acbf5162bbf85a6c4"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "fn-error-context"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -633,8 +642,9 @@ dependencies = [
  "human-panic",
  "log",
  "num_cpus",
- "predicates-core",
+ "predicates",
  "rayon",
+ "regex",
  "serde",
  "serde_ignored",
  "serde_json",
@@ -647,6 +657,12 @@ dependencies = [
  "vergen",
  "which",
 ]
+
+[[package]]
+name = "normalize-line-endings"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "ntapi"
@@ -779,8 +795,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6e46ca79eb4e21e2ec14430340c71250ab69332abf85521c95d3a8bc336aa76"
 dependencies = [
  "difflib",
+ "float-cmp",
  "itertools",
+ "normalize-line-endings",
  "predicates-core",
+ "regex",
 ]
 
 [[package]]

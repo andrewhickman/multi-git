@@ -84,7 +84,8 @@ impl Output {
             self.writeln_json(&JsonMessage {
                 kind: "message",
                 message: msg.to_string(),
-            }).ok();
+            })
+            .ok();
         } else {
             self.writeln(|stdout| {
                 write!(stdout, "{}", msg)?;
@@ -322,9 +323,12 @@ impl LineContent for ErrorLineContent {
             error: &'a crate::Error,
         }
 
-        serde_json::to_writer(stdout, &JsonError {
-            kind: "error",
-            error: &self.error,
-        })
+        serde_json::to_writer(
+            stdout,
+            &JsonError {
+                kind: "error",
+                error: &self.error,
+            },
+        )
     }
 }

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
-use std::{fs, io};
 use std::process::Command;
+use std::{fs, io};
 
 use assert_fs::fixture::TempDir;
 use which::which;

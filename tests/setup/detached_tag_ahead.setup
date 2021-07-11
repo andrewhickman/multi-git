@@ -3,3 +3,4 @@ GIT commit --message "Commit 0" --allow-empty
 GIT tag release
 GIT commit --message "Commit 1" --allow-empty
 GIT switch release --detach
+GIT commit --message "Commit 2" --allow-empty

@@ -3,9 +3,9 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use serde::Serialize;
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use crossterm::terminal::{self, Clear, ClearType};
+use serde::Serialize;
 use structopt::StructOpt;
 
 use crate::config::Config;
@@ -157,7 +157,7 @@ impl LineContent for StatusLineContent {
         let json = match &*state {
             None => unreachable!(),
             Some(Ok(status)) => JsonStatus::Status { status },
-            Some(Err(error)) => JsonStatus::Error { error},
+            Some(Err(error)) => JsonStatus::Error { error },
         };
 
         serde_json::to_writer(stdout, &json)
