@@ -1,0 +1,2 @@
+GIT init --initial-branch main
+GIT switch --create topic

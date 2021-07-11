@@ -1,0 +1,2 @@
+GIT init --initial-branch main
+GIT commit --message "Initial commit" --allow-empty
