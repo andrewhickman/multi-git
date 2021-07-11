@@ -1,0 +1,5 @@
+GIT init --initial-branch main
+WRITE file.txt
+GIT add file.txt
+GIT commit --message "Initial commit" --allow-empty
+WRITE file.txt change

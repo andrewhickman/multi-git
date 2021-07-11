@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::{fs, io};
 
 use assert_fs::fixture::TempDir;
@@ -20,6 +20,7 @@ pub fn run(data: &str) -> Context {
         match cmd {
             "CD" => context.run_cd(rem),
             "GIT" => context.run_git(rem),
+            "WRITE" => context.run_write(rem),
             _ => panic!("Invalid command {}", cmd),
         }
     }
@@ -59,10 +60,20 @@ impl Context {
         let status = Command::new(&self.git_exe)
             .args(shell_words::split(cmd).unwrap())
             .current_dir(&self.working_dir)
+            .stderr(Stdio::null())
+            .stdout(Stdio::null())
             .status()
             .unwrap();
         if !status.success() {
             panic!("git exited unsuccessfully: {}", status);
         }
+    }
+
+    fn run_write(&mut self, cmd: &str) {
+        let (filename, text) = match cmd.split_once(' ') {
+            Some((filename, text)) => (filename, text),
+            None => (cmd, ""),
+        };
+        fs::write(self.working_dir.join(filename), text).unwrap();
     }
 }
