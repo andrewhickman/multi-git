@@ -308,7 +308,7 @@ impl Repository {
         };
         if !status.head.on_branch(&default_branch) {
             if switch {
-                self.checkout(&format!("{}{}", REFS_HEADS_NAMESPACE, default_branch))?;
+                self.switch_branch(&default_branch)?;
             } else {
                 return Err(crate::Error::from_message("not on default branch"));
             }
@@ -347,15 +347,9 @@ impl Repository {
         fetch_commit: git2::AnnotatedCommit,
     ) -> Result<(), git2::Error> {
         debug_assert!(status.head.is_unborn());
-        let branch_name = format!("{}{}", REFS_HEADS_NAMESPACE, status.head.name);
-        let log_message = format!(
-            "multi-git: creating unborn branch {} at {}",
-            branch_name,
-            fetch_commit.id()
-        );
-        self.repo
-            .reference(&branch_name, fetch_commit.id(), false, &log_message)?;
-        self.checkout(&branch_name)?;
+        let commit = self.repo.find_commit(fetch_commit.id())?;
+        let branch = self.repo.branch(&status.head.name, &commit, false)?;
+        self.switch(&branch.into_reference())?;
         Ok(())
     }
 
@@ -368,12 +362,14 @@ impl Repository {
             fetch_commit.id(),
         );
 
+        debug_assert!(branch.is_head());
+        self.repo.checkout_tree(
+            &self.repo.find_object(fetch_commit.id(), None)?,
+            Some(&mut git2::build::CheckoutBuilder::new().safe()),
+        )?;
         branch
             .get_mut()
             .set_target(fetch_commit.id(), &log_message)?;
-        debug_assert!(branch.is_head());
-        self.repo
-            .checkout_head(Some(&mut git2::build::CheckoutBuilder::new().force()))?;
         Ok(())
     }
 
@@ -394,16 +390,27 @@ impl Repository {
             ));
         }
 
-        self.repo.branch(name, &commit, false)?;
-        let ref_name = format!("{}{}", REFS_HEADS_NAMESPACE, name);
-        self.checkout(&ref_name)?;
+        let branch = self.repo.branch(name, &commit, false)?;
+        self.switch(&branch.into_reference())?;
         Ok(())
     }
 
-    fn checkout(&self, ref_name: &str) -> Result<(), git2::Error> {
-        self.repo.set_head(&ref_name)?;
+    fn switch_branch(&self, branch_name: &str) -> Result<(), git2::Error> {
+        let reference = self
+            .repo
+            .find_branch(branch_name, git2::BranchType::Local)?
+            .into_reference();
+        self.switch(&reference)?;
+        Ok(())
+    }
+
+    fn switch(&self, reference: &git2::Reference) -> Result<(), git2::Error> {
+        self.repo.checkout_tree(
+            &reference.peel(git2::ObjectType::Tree)?,
+            Some(git2::build::CheckoutBuilder::new().safe()),
+        )?;
         self.repo
-            .checkout_head(Some(&mut git2::build::CheckoutBuilder::new().force()))?;
+            .set_head(&reference.name().expect("ref name is invalid utf-8"))?;
         Ok(())
     }
 

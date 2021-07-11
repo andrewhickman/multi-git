@@ -81,7 +81,8 @@ status_test!(
 
 fn run_status_test(name: &str, expected: &str) {
     let context = setup::run(
-        &fs_err::read_to_string(Path::new("tests/setup").join(name).with_extension("setup")).unwrap(),
+        &fs_err::read_to_string(Path::new("tests/setup").join(name).with_extension("setup"))
+            .unwrap(),
     );
 
     Command::cargo_bin("mgit")

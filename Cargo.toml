@@ -46,3 +46,6 @@ predicates = "2.0.0"
 regex = "1.5.4"
 shell-words = "1.0.0"
 which = "4.1.0"
+
+[patch.crates-io]
+git2 = { git = "https://github.com/andrewhickman/git2-rs.git" }
