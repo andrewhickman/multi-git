@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use structopt::StructOpt;
 
 use crate::config::Config;
@@ -20,9 +18,6 @@ pub fn run(
     config: &Config,
 ) -> crate::Result<()> {
     let path = alias::resolve(&resolve_args.target, args, config)?;
-    out.writeln(|stdout| {
-        write!(stdout, "{}", path.display())?;
-        Ok(())
-    })?;
+    out.writeln_fmt(path.display());
     Ok(())
 }
