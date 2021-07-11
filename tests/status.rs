@@ -1,188 +1,97 @@
 mod setup;
 
+use std::path::Path;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 
-#[test]
-fn empty() {
-    let context = setup::run(include_str!("setup/empty.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"main","kind":"unborn"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
+macro_rules! status_test {
+    ($name:ident, $expected:expr) => {
+        #[test]
+        fn $name() {
+            run_status_test(stringify!($name), $expected);
+        }
+    };
 }
 
-#[test]
-fn empty_branch() {
-    let context = setup::run(include_str!("setup/empty_branch.setup"));
+status_test!(
+    empty,
+    r#"{"kind":"status","head":{"name":"main","kind":"unborn"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    empty_branch,
+    r#"{"kind":"status","head":{"name":"topic","kind":"unborn"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    on_main,
+    r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    on_branch,
+    r#"{"kind":"status","head":{"name":"topic","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    detached,
+    r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    detached_branch,
+    r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    detached_branch_ahead,
+    r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    detached_tag,
+    r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    detached_tag_ahead,
+    r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    index_changed,
+    r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":true},"default_branch":null}"#
+);
+status_test!(
+    index_added,
+    r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":true},"default_branch":null}"#
+);
+status_test!(
+    working_tree_changed,
+    r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":true,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    working_tree_added,
+    r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#
+);
+status_test!(
+    upstream,
+    r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"upstream","ahead":0,"behind":0},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":"main"}"#
+);
+status_test!(
+    upstream_behind,
+    r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"upstream","ahead":0,"behind":1},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":"main"}"#
+);
+status_test!(
+    upstream_ahead,
+    r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"upstream","ahead":1,"behind":0},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":"main"}"#
+);
+
+fn run_status_test(name: &str, expected: &str) {
+    let context = setup::run(
+        &fs_err::read_to_string(Path::new("tests/setup").join(name).with_extension("setup")).unwrap(),
+    );
 
     Command::cargo_bin("mgit")
         .unwrap()
         .arg("--json")
         .arg("status")
-        .current_dir(context.temp_dir())
+        .current_dir(context.working_dir())
         .assert()
         .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"topic","kind":"unborn"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
-}
-
-#[test]
-fn on_main() {
-    let context = setup::run(include_str!("setup/on_main.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
-}
-
-#[test]
-fn on_branch() {
-    let context = setup::run(include_str!("setup/on_branch.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"topic","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
-}
-
-#[test]
-fn detached() {
-    let context = setup::run(include_str!("setup/detached.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
-}
-
-#[test]
-fn detached_branch() {
-    let context = setup::run(include_str!("setup/detached_branch.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
-}
-
-#[test]
-fn detached_branch_ahead() {
-    let context = setup::run(include_str!("setup/detached_branch_ahead.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
-}
-
-#[test]
-fn detached_tag() {
-    let context = setup::run(include_str!("setup/detached_tag.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
-}
-
-#[test]
-fn detached_tag_ahead() {
-    let context = setup::run(include_str!("setup/detached_tag_ahead.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"*","kind":"detached"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
-}
-
-#[test]
-fn index_changed() {
-    let context = setup::run(include_str!("setup/index_changed.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":true},"default_branch":null}"#));
-}
-
-#[test]
-fn working_tree_changed() {
-    let context = setup::run(include_str!("setup/working_tree_changed.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":true,"index_changed":false},"default_branch":null}"#));
-}
-
-#[test]
-fn index_added() {
-    let context = setup::run(include_str!("setup/index_added.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":true},"default_branch":null}"#));
-}
-
-#[test]
-fn working_tree_added() {
-    let context = setup::run(include_str!("setup/working_tree_added.setup"));
-
-    Command::cargo_bin("mgit")
-        .unwrap()
-        .arg("--json")
-        .arg("status")
-        .current_dir(context.temp_dir())
-        .assert()
-        .success()
-        .stdout(output_pred(r#"{"kind":"status","head":{"name":"main","kind":"branch"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":null}"#));
+        .stdout(output_pred(expected));
 }
 
 fn output_pred(expected: &str) -> impl Predicate<[u8]> {

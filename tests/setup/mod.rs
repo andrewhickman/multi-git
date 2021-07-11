@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::{fs, io};
+use std::io;
 
 use assert_fs::fixture::TempDir;
 use which::which;
@@ -15,6 +15,10 @@ pub fn run(data: &str) -> Context {
     let mut context = Context::new();
 
     for line in data.lines() {
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
         let (cmd, rem) = line.split_once(" ").expect("invalid syntax");
 
         match cmd {
@@ -40,14 +44,21 @@ impl Context {
         }
     }
 
-    pub fn temp_dir(&self) -> &Path {
-        &self.temp_dir.path()
+    pub fn working_dir(&self) -> &Path {
+        &self.working_dir
     }
 
     fn run_cd(&mut self, name: &str) {
-        let working_dir = self.temp_dir.path().join(name.trim());
+        let path = Path::new(name);
+        let working_dir = if path.has_root() {
+            let mut working_dir = self.temp_dir.path().to_owned();
+            working_dir.extend(path.components().skip_while(|&c| c == Component::RootDir));
+            working_dir
+        } else {
+            self.working_dir.join(path)
+        };
 
-        match fs::create_dir(&working_dir) {
+        match fs_err::create_dir(&working_dir) {
             Ok(_) => (),
             Err(err) if err.kind() == io::ErrorKind::AlreadyExists => (),
             Err(err) => panic!("error creating directory {}", err),
@@ -74,6 +85,6 @@ impl Context {
             Some((filename, text)) => (filename, text),
             None => (cmd, ""),
         };
-        fs::write(self.working_dir.join(filename), text).unwrap();
+        fs_err::write(self.working_dir.join(filename), text).unwrap();
     }
 }

@@ -1,0 +1,13 @@
+CD /upstream
+GIT init --initial-branch main
+GIT commit --message "Initial commit" --allow-empty
+
+CD /
+GIT clone upstream local --origin upstream
+
+CD /upstream
+GIT commit --message "Commit 0" --allow-empty
+
+CD /local
+GIT commit --message "Commit 1" --allow-empty
+GIT fetch upstream
