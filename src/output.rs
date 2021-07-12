@@ -173,6 +173,7 @@ impl<'out> Block<'out> {
             let mut stdout = self.output.stdout.lock();
 
             inner.write_all(&mut stdout)?;
+            inner.reset_cursor(&mut stdout)?;
         }
 
         Ok(())
@@ -243,9 +244,8 @@ impl<'out> BlockInner<'out> {
         self.write_all(stdout)?;
         self.range.start += shift;
 
-        if self.range.len() != 0 {
-            crossterm::queue!(stdout, MoveUp(self.range.len() as u16))?;
-        }
+        self.reset_cursor(stdout)?;
+
         Ok(())
     }
 
@@ -268,6 +268,13 @@ impl<'out> BlockInner<'out> {
             writeln!(stdout)?;
         }
 
+        Ok(())
+    }
+
+    fn reset_cursor(&mut self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
+        if self.range.len() != 0 {
+            crossterm::queue!(stdout, MoveUp(self.range.len() as u16))?;
+        }
         Ok(())
     }
 }
