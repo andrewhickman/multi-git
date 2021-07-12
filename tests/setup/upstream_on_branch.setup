@@ -6,9 +6,7 @@ CD /
 GIT clone upstream local --origin upstream
 
 CD /upstream
-WRITE file.txt changed
-GIT add file.txt
-GIT commit --message "Commit 0" --allow-empty
+GIT commit --message "Commit 2" --allow-empty
 
 CD /local
-GIT fetch upstream
+GIT switch --create topic

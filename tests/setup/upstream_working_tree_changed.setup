@@ -1,0 +1,14 @@
+CD /upstream
+GIT init --initial-branch main
+WRITE file.txt original
+GIT add file.txt
+GIT commit --message "Initial commit"
+
+CD /
+GIT clone upstream local --origin upstream
+
+CD /upstream
+GIT commit --message "Commit 2" --allow-empty
+
+CD /local
+WRITE file.txt changed

@@ -1,0 +1,6 @@
+CD /upstream
+GIT init --initial-branch main
+
+CD /
+GIT clone upstream local --origin upstream
+CD /local

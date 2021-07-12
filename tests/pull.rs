@@ -3,7 +3,7 @@ mod setup;
 use std::path::Path;
 
 use assert_cmd::Command;
-use assert_fs::{TempDir, prelude::*};
+use assert_fs::{prelude::*, TempDir};
 use predicates::prelude::*;
 
 macro_rules! pull_test {
@@ -36,6 +36,67 @@ pull_test!(
         path.child("local/file.txt").assert("original");
     }
 );
+pull_test!(
+    upstream,
+    r#"{"kind":"pull","state":"up_to_date","branch":"main"}"#
+);
+pull_test!(
+    upstream_ahead,
+    r#"{"kind":"pull","state":"up_to_date","branch":"main"}"#
+);
+pull_test!(
+    upstream_behind,
+    r#"{"kind":"pull","state":"fast_forwarded","branch":"main"}"#,
+    |path| {
+        path.child("local/file.txt").assert("changed");
+    }
+);
+pull_test!(
+    upstream_diverged,
+    r#"{"kind":"error","message":"cannot fast-forward","source":null}"#
+);
+pull_test!(
+    upstream_on_branch,
+    r#"{"kind":"error","message":"not on default branch","source":null}"#
+);
+pull_test!(
+    upstream_working_tree_changed,
+    r#"{"kind":"error","message":"working tree has uncommitted changes","source":null}"#,
+    |path| {
+        path.child("local/file.txt").assert("changed");
+    }
+);
+pull_test!(
+    upstream_empty,
+    r#"{"kind":"error","message":"remote has no default branch","source":null}"#
+);
+pull_test!(
+    upstream_local_empty,
+    r#"{"kind":"pull","state":"created_unborn","branch":"main"}"#
+);
+
+#[test]
+fn upstream_on_branch_switch() {
+    let context =
+        setup::run(&fs_err::read_to_string("tests/setup/upstream_on_branch.setup").unwrap());
+
+    Command::cargo_bin("mgit")
+        .unwrap()
+        .arg("--json")
+        .arg("pull")
+        .arg("--switch")
+        .current_dir(context.working_dir())
+        .assert()
+        .success()
+        .stdout(output_pred(
+            r#"{"kind":"pull","state":"fast_forwarded","branch":"main"}"#,
+        ));
+
+    context
+        .temp_dir()
+        .child("local/.git/HEAD")
+        .assert("ref: refs/heads/main\n");
+}
 
 fn run_pull_test(name: &str, expected: &str, fs_asserts: impl FnOnce(&TempDir)) {
     let context = setup::run(

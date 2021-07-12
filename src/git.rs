@@ -302,28 +302,32 @@ impl Repository {
             ));
         }
 
-        let default_branch = match &status.default_branch {
+        let default_branch = dbg!(match &status.default_branch {
             Some(name) => name.clone(),
             None => self.default_branch_for_remote(&remote)?,
-        };
+        });
         if !status.head.on_branch(&default_branch) {
             if switch {
-                self.switch_branch(&default_branch)?;
+                if status.head.is_detached() {
+                    return Err(crate::Error::from_message("will not switch branch while detached"));
+                } else {
+                    self.switch_branch(&default_branch)?;
+                }
             } else {
                 return Err(crate::Error::from_message("not on default branch"));
             }
         }
 
-        let upstream_oid = self
-            .head_branch()?
-            .upstream()?
-            .into_reference()
-            .target()
-            .expect("branch is not direct reference");
+        // let upstream_oid = self
+        //     .head_branch()?
+        //     .upstream()?
+        //     .into_reference()
+        //     .target()
+        //     .expect("branch is not direct reference");
         let fetch_head = self.repo.annotated_commit_from_fetchhead(
             &default_branch,
             remote.url().expect("remote url is invalid utf-8"),
-            &upstream_oid,
+            &self.repo.refname_to_id("FETCH_HEAD")?,
         )?;
 
         let (merge_analysis, _) = self.repo.merge_analysis(&[&fetch_head])?;
@@ -442,7 +446,13 @@ impl Repository {
     }
 
     fn default_branch_for_remote(&self, remote: &git2::Remote) -> Result<String, crate::Error> {
-        let name = remote.default_branch()?;
+        let name = match remote.default_branch() {
+            Ok(name) => name,
+            Err(err) if err.code() == git2::ErrorCode::NotFound => {
+                return Err(crate::Error::from_message("remote has no default branch"))
+            }
+            Err(err) => return Err(err.into()),
+        };
         match str::from_utf8(name.as_ref()) {
             Ok(name) => Ok(name
                 .strip_prefix(REFS_HEADS_NAMESPACE)
@@ -502,6 +512,13 @@ impl HeadStatus {
     fn is_unborn(&self) -> bool {
         match self.kind {
             HeadStatusKind::Unborn => true,
+            _ => false,
+        }
+    }
+
+    fn is_detached(&self) -> bool {
+        match self.kind {
+            HeadStatusKind::Detached => true,
             _ => false,
         }
     }
