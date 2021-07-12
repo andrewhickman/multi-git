@@ -198,10 +198,12 @@ impl LineContent for PullLineContent {
         #[serde(tag = "kind", rename_all = "snake_case")]
         enum JsonPull<'a> {
             Pull {
+                path: String,
                 #[serde(flatten)]
                 outcome: &'a git::PullOutcome,
             },
             Error {
+                path: String,
                 #[serde(flatten)]
                 error: &'a crate::Error,
             },
@@ -213,8 +215,14 @@ impl LineContent for PullLineContent {
             PullState::Pending | PullState::Downloading(_) | PullState::Indexing(_) => {
                 unreachable!()
             }
-            PullState::Finished(Ok(outcome)) => JsonPull::Pull { outcome },
-            PullState::Finished(Err(error)) => JsonPull::Error { error },
+            PullState::Finished(Ok(outcome)) => JsonPull::Pull {
+                path: self.relative_path.display().to_string(),
+                outcome,
+            },
+            PullState::Finished(Err(error)) => JsonPull::Error {
+                path: self.relative_path.display().to_string(),
+                error,
+            },
         };
 
         serde_json::to_writer(stdout, &json)

@@ -309,7 +309,9 @@ impl Repository {
         if !status.head.on_branch(&default_branch) {
             if switch {
                 if status.head.is_detached() {
-                    return Err(crate::Error::from_message("will not switch branch while detached"));
+                    return Err(crate::Error::from_message(
+                        "will not switch branch while detached",
+                    ));
                 } else {
                     self.switch_branch(&default_branch)?;
                 }

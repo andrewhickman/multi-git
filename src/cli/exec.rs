@@ -253,9 +253,11 @@ impl LineContent for ExecLineContent {
         #[serde(tag = "kind", rename_all = "snake_case")]
         enum JsonExec<'a> {
             Exec {
+                path: String,
                 code: Option<i32>,
             },
             Error {
+                path: String,
                 #[serde(flatten)]
                 error: &'a crate::Error,
             },
@@ -266,9 +268,13 @@ impl LineContent for ExecLineContent {
         let json = match &*state {
             ExecState::Pending | ExecState::Running(_) => unreachable!(),
             ExecState::Finished(status) => JsonExec::Exec {
+                path: self.relative_path.display().to_string(),
                 code: status.code(),
             },
-            ExecState::Error(error) => JsonExec::Error { error },
+            ExecState::Error(error) => JsonExec::Error {
+                path: self.relative_path.display().to_string(),
+                error,
+            },
         };
 
         serde_json::to_writer(stdout, &json)

@@ -20,67 +20,67 @@ macro_rules! pull_test {
 
 pull_test!(
     empty,
-    r#"{"kind":"error","message":"no remotes","source":null}"#
+    r#"{"kind":"error","path":"","message":"no remotes","source":null}"#
 );
 pull_test!(
     upstream_working_tree_added,
-    r#"{"kind":"pull","state":"fast_forwarded","branch":"main"}"#,
+    r#"{"kind":"pull","path":"","state":"fast_forwarded","branch":"main"}"#,
     |path| {
         path.child("local/file.txt").assert("changed");
     }
 );
 pull_test!(
     upstream_working_tree_overwrite,
-    r#"{"kind":"error","message":"1 conflict prevents checkout","source":null}"#,
+    r#"{"kind":"error","path":"","message":"1 conflict prevents checkout","source":null}"#,
     |path| {
         path.child("local/file.txt").assert("original");
     }
 );
 pull_test!(
     upstream,
-    r#"{"kind":"pull","state":"up_to_date","branch":"main"}"#
+    r#"{"kind":"pull","path":"","state":"up_to_date","branch":"main"}"#
 );
 pull_test!(
     upstream_ahead,
-    r#"{"kind":"pull","state":"up_to_date","branch":"main"}"#
+    r#"{"kind":"pull","path":"","state":"up_to_date","branch":"main"}"#
 );
 pull_test!(
     upstream_behind,
-    r#"{"kind":"pull","state":"fast_forwarded","branch":"main"}"#,
+    r#"{"kind":"pull","path":"","state":"fast_forwarded","branch":"main"}"#,
     |path| {
         path.child("local/file.txt").assert("changed");
     }
 );
 pull_test!(
     upstream_diverged,
-    r#"{"kind":"error","message":"cannot fast-forward","source":null}"#
+    r#"{"kind":"error","path":"","message":"cannot fast-forward","source":null}"#
 );
 pull_test!(
     upstream_on_branch,
-    r#"{"kind":"error","message":"not on default branch","source":null}"#
+    r#"{"kind":"error","path":"","message":"not on default branch","source":null}"#
 );
 pull_test!(
     upstream_working_tree_changed,
-    r#"{"kind":"error","message":"working tree has uncommitted changes","source":null}"#,
+    r#"{"kind":"error","path":"","message":"working tree has uncommitted changes","source":null}"#,
     |path| {
         path.child("local/file.txt").assert("changed");
     }
 );
 pull_test!(
     upstream_empty,
-    r#"{"kind":"error","message":"remote has no default branch","source":null}"#
+    r#"{"kind":"error","path":"","message":"remote has no default branch","source":null}"#
 );
 pull_test!(
     upstream_local_empty,
-    r#"{"kind":"pull","state":"created_unborn","branch":"main"}"#
+    r#"{"kind":"pull","path":"","state":"created_unborn","branch":"main"}"#
 );
 pull_test!(
     upstream_local_empty_on_branch,
-    r#"{"kind":"error","message":"not on default branch","source":null}"#
+    r#"{"kind":"error","path":"","message":"not on default branch","source":null}"#
 );
 pull_test!(
     upstream_detached,
-    r#"{"kind":"error","message":"not on default branch","source":null}"#
+    r#"{"kind":"error","path":"","message":"not on default branch","source":null}"#
 );
 
 #[test]
@@ -97,7 +97,7 @@ fn upstream_on_branch_switch() {
         .assert()
         .success()
         .stdout(output_pred(
-            r#"{"kind":"pull","state":"fast_forwarded","branch":"main"}"#,
+            r#"{"kind":"pull","path":"","state":"fast_forwarded","branch":"main"}"#,
         ));
 
     context
@@ -108,8 +108,9 @@ fn upstream_on_branch_switch() {
 
 #[test]
 fn upstream_local_empty_on_branch_switch() {
-    let context =
-        setup::run(&fs_err::read_to_string("tests/setup/upstream_local_empty_on_branch.setup").unwrap());
+    let context = setup::run(
+        &fs_err::read_to_string("tests/setup/upstream_local_empty_on_branch.setup").unwrap(),
+    );
 
     Command::cargo_bin("mgit")
         .unwrap()
@@ -120,7 +121,7 @@ fn upstream_local_empty_on_branch_switch() {
         .assert()
         .success()
         .stdout(output_pred(
-            r#"{"kind":"error","message":"cannot locate local branch 'main'","source":null}"#,
+            r#"{"kind":"error","path":"","message":"cannot locate local branch 'main'","source":null}"#,
         ));
 
     context
@@ -143,7 +144,7 @@ fn upstream_detached_switch() {
         .assert()
         .success()
         .stdout(output_pred(
-            r#"{"kind":"error","message":"will not switch branch while detached","source":null}"#,
+            r#"{"kind":"error","path":"","message":"will not switch branch while detached","source":null}"#,
         ));
 }
 

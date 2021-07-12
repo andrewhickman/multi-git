@@ -143,10 +143,12 @@ impl LineContent for StatusLineContent {
         #[serde(tag = "kind", rename_all = "snake_case")]
         enum JsonStatus<'a> {
             Status {
+                path: String,
                 #[serde(flatten)]
                 status: &'a git::RepositoryStatus,
             },
             Error {
+                path: String,
                 #[serde(flatten)]
                 error: &'a crate::Error,
             },
@@ -156,8 +158,14 @@ impl LineContent for StatusLineContent {
 
         let json = match &*state {
             None => unreachable!(),
-            Some(Ok(status)) => JsonStatus::Status { status },
-            Some(Err(error)) => JsonStatus::Error { error },
+            Some(Ok(status)) => JsonStatus::Status {
+                path: self.relative_path.display().to_string(),
+                status,
+            },
+            Some(Err(error)) => JsonStatus::Error {
+                path: self.relative_path.display().to_string(),
+                error,
+            },
         };
 
         serde_json::to_writer(stdout, &json)
