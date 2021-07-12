@@ -86,6 +86,10 @@ status_test!(
     upstream_local_empty,
     r#"{"kind":"status","head":{"name":"main","kind":"unborn"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":"main"}"#
 );
+status_test!(
+    upstream_local_empty_on_branch,
+    r#"{"kind":"status","head":{"name":"topic","kind":"unborn"},"upstream":{"state":"none"},"working_tree":{"working_changed":false,"index_changed":false},"default_branch":"main"}"#
+);
 
 fn run_status_test(name: &str, expected: &str) {
     let context = setup::run(

@@ -318,12 +318,6 @@ impl Repository {
             }
         }
 
-        // let upstream_oid = self
-        //     .head_branch()?
-        //     .upstream()?
-        //     .into_reference()
-        //     .target()
-        //     .expect("branch is not direct reference");
         let fetch_head = self.repo.annotated_commit_from_fetchhead(
             &default_branch,
             remote.url().expect("remote url is invalid utf-8"),
