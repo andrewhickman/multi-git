@@ -302,10 +302,10 @@ impl Repository {
             ));
         }
 
-        let default_branch = dbg!(match &status.default_branch {
+        let default_branch = match &status.default_branch {
             Some(name) => name.clone(),
             None => self.default_branch_for_remote(&remote)?,
-        });
+        };
         if !status.head.on_branch(&default_branch) {
             if switch {
                 if status.head.is_detached() {

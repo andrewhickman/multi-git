@@ -1,0 +1,12 @@
+CD /upstream
+GIT init --initial-branch main
+GIT commit --message "Commit 0" --allow-empty
+
+CD /
+GIT clone upstream local --origin upstream
+
+CD /upstream
+GIT commit --message "Commit 1" --allow-empty
+
+CD /local
+GIT switch HEAD --detach
