@@ -74,6 +74,10 @@ impl Context {
 
     fn run_git(&mut self, cmd: &str) {
         let status = Command::new(&self.git_exe)
+            .arg("-c")
+            .arg("core.fsmonitor=")
+            .arg("-c")
+            .arg("core.usebuiltinfsmonitor=false")
             .args(shell_words::split(cmd).unwrap())
             .current_dir(&self.working_dir)
             .stderr(Stdio::null())
