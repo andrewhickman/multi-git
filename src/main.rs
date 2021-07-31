@@ -3,6 +3,7 @@ mod cli;
 mod config;
 mod error;
 mod git;
+mod logger;
 mod output;
 mod progress;
 mod walk;
@@ -17,7 +18,9 @@ fn main() {
     human_panic::setup_panic!();
 
     let args = cli::parse_args();
-    log::trace!("{:#?}", args);
+
+    logger::init().unwrap();
+    log::trace!("{:?}", args);
 
     let out = Output::new(args.json);
 
