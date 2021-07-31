@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::{fmt, io};
 
+use backtrace::Backtrace;
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use serde::{Serialize, Serializer};
 
@@ -57,6 +58,9 @@ impl Error {
 
 impl From<git2::Error> for Error {
     fn from(err: git2::Error) -> Error {
+        if log::log_enabled!(log::Level::Error) {
+            log::error!("Git error: {} at {:?}", err, Backtrace::new());
+        }
         Error {
             inner: err.message().into(),
         }

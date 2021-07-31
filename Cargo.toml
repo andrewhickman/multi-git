@@ -33,6 +33,7 @@ toml_edit = { git = "https://github.com/ironyman/toml_edit", branch = "dotted2" 
 fn-error-context = "0.1.2"
 serde_ignored = "0.1.2"
 serde_json = "1.0.64"
+backtrace = "0.3.61"
 
 [build-dependencies.vergen]
 version = "5.1.6"
@@ -46,6 +47,3 @@ predicates = "2.0.0"
 regex = "1.5.4"
 shell-words = "1.0.0"
 which = "4.1.0"
-
-[patch.crates-io]
-git2 = { git = "https://github.com/andrewhickman/git2-rs.git" }
