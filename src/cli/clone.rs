@@ -3,7 +3,7 @@ use std::ffi::{OsStr, OsString};
 use std::path::Path;
 use std::str::FromStr;
 
-use structopt::StructOpt;
+use clap::{AppSettings, Clap};
 use url::Url;
 
 use crate::cli::pull::PullLineContent;
@@ -11,34 +11,34 @@ use crate::config::{self, Config};
 use crate::output::Output;
 use crate::{alias, cli, git};
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Clone a new repo", no_version)]
-#[structopt(setting = structopt::clap::AppSettings::AllowMissingPositional)]
+#[derive(Debug, Clap)]
+#[clap(about = "Clone a new repo")]
+#[clap(setting = AppSettings::AllowMissingPositional)]
 pub struct CloneArgs {
-    #[structopt(
+    #[clap(
         value_name = "TARGET",
-        help = "the path or alias of the parent directory to clone into"
+        about = "the path or alias of the parent directory to clone into"
     )]
     target: Option<String>,
-    #[structopt(
+    #[clap(
         value_name = "REPOSITORY",
-        help = "the repository to clone from",
+        about = "the repository to clone from",
         parse(from_str)
     )]
     repo: UrlOrPath,
-    #[structopt(
+    #[clap(
         long,
         short,
         value_name = "NAME",
-        help = "the name of the directory to create for the new repository",
+        about = "the name of the directory to create for the new repository",
         parse(from_os_str)
     )]
     name: Option<OsString>,
-    #[structopt(
+    #[clap(
         long,
         short,
         value_name = "ALIAS",
-        help = "an alias to create for the new repository"
+        about = "an alias to create for the new repository"
     )]
     alias: Option<String>,
 }

@@ -1,27 +1,27 @@
 use std::process::Command;
 
-use structopt::StructOpt;
+use clap::Clap;
 
 use crate::config::Config;
 use crate::{alias, cli, config, git};
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Open a repo in an editor", no_version)]
+#[derive(Debug, Clap)]
+#[clap(about = "Open a repo in an editor")]
 pub struct EditArgs {
-    #[structopt(
+    #[clap(
         value_name = "TARGET",
-        help = "the path or alias of the repo to edit",
-        required_unless = "config"
+        about = "the path or alias of the repo to edit",
+        required_unless_present = "config"
     )]
     target: Option<String>,
-    #[structopt(long, short, help = "override the editor program")]
+    #[clap(long, short, about = "override the editor program")]
     editor: Option<String>,
-    #[structopt(long, short, help = "create a new branch")]
+    #[clap(long, short, about = "create a new branch")]
     branch: Option<String>,
-    #[structopt(
+    #[clap(
         long,
         short,
-        help = "Edit the config file",
+        about = "Edit the config file",
         conflicts_with = "target",
         conflicts_with = "branch"
     )]

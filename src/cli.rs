@@ -12,53 +12,51 @@ pub use self::pull::{run as pull, PullArgs};
 pub use self::resolve::{run as resolve, ResolveArgs};
 pub use self::status::{run as status, StatusArgs};
 
-use structopt::clap::AppSettings;
-use structopt::StructOpt;
+use clap::{AppSettings, Clap};
 
 pub fn parse_args() -> Args {
-    Args::from_args()
+    Args::parse()
 }
 
 const VERSION: &str = env!("VERGEN_GIT_SHA");
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, Clap)]
+#[clap(
     about = "Utility for managing multiple git repos",
     bin_name = "mgit",
     version = VERSION,
 )]
-#[structopt(global_setting = AppSettings::UnifiedHelpMessage)]
-#[structopt(global_setting = AppSettings::VersionlessSubcommands)]
+#[clap(global_setting = AppSettings::UnifiedHelpMessage)]
+#[clap(global_setting = AppSettings::ColoredHelp)]
 pub struct Args {
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub command: Command,
-    #[structopt(long, global = true, short = "A", help = "Disable aliases")]
+    #[clap(long, global = true, short = 'A', about = "Disable aliases")]
     pub no_alias: bool,
-    #[structopt(
+    #[clap(
         long,
         short,
         global = true,
-        help = "Number of threads to use. If set to 0, uses the number of available CPUs",
+        about = "Number of threads to use. If set to 0, uses the number of available CPUs",
         default_value = "0"
     )]
     pub jobs: usize,
-    #[structopt(long, global = true, help = "Print output in JSON Lines format")]
+    #[clap(long, global = true, about = "Print output in JSON Lines format")]
     pub json: bool,
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(no_version)]
+#[derive(Debug, Clap)]
 pub enum Command {
-    #[structopt(name = "edit", no_version)]
+    #[clap(name = "edit")]
     Edit(EditArgs),
-    #[structopt(name = "status", no_version)]
+    #[clap(name = "status")]
     Status(StatusArgs),
-    #[structopt(name = "pull", no_version)]
+    #[clap(name = "pull")]
     Pull(PullArgs),
-    #[structopt(name = "resolve", no_version)]
+    #[clap(name = "resolve")]
     Resolve(ResolveArgs),
-    #[structopt(name = "exec", no_version)]
+    #[clap(name = "exec")]
     Exec(ExecArgs),
-    #[structopt(name = "clone", no_version)]
+    #[clap(name = "clone")]
     Clone(CloneArgs),
 }

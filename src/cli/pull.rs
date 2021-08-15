@@ -3,10 +3,10 @@ use std::io::{self, Write as _};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use clap::Clap;
 use crossterm::style::{Color, ResetColor, SetForegroundColor};
 use crossterm::terminal::{self, Clear, ClearType};
 use serde::Serialize;
-use structopt::StructOpt;
 
 use crate::config::Config;
 use crate::output::{self, LineContent, Output};
@@ -14,15 +14,15 @@ use crate::progress::ProgressBar;
 use crate::walk::{self, walk_with_output};
 use crate::{alias, cli, git};
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Pull changes in your repos", no_version)]
+#[derive(Debug, Clap)]
+#[clap(about = "Pull changes in your repos")]
 pub struct PullArgs {
-    #[structopt(
+    #[clap(
         value_name = "TARGET",
-        help = "the path or alias of the repo(s) to pull"
+        about = "the path or alias of the repo(s) to pull"
     )]
     target: Option<String>,
-    #[structopt(long, help = "whether to switch to the default branch before pulling")]
+    #[clap(long, about = "whether to switch to the default branch before pulling")]
     switch: bool,
 }
 

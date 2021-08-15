@@ -10,13 +10,13 @@ use std::{
 use std::{path::PathBuf, process::Command};
 use std::{process::Stdio, str::FromStr};
 
+use clap::{AppSettings, Clap};
 use crossterm::{
     style::{Attribute, SetAttribute},
     terminal::{self, Clear, ClearType},
 };
 use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
-use structopt::StructOpt;
 
 use crate::{
     alias, cli,
@@ -25,28 +25,28 @@ use crate::{
     walk::{self, walk_with_output},
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Run a command in one or more repos", no_version)]
-#[structopt(setting = structopt::clap::AppSettings::TrailingVarArg)]
-#[structopt(setting = structopt::clap::AppSettings::AllowMissingPositional)]
+#[derive(Debug, Clap)]
+#[clap(about = "Run a command in one or more repos")]
+#[clap(setting = AppSettings::TrailingVarArg)]
+#[clap(setting = AppSettings::AllowMissingPositional)]
 pub struct ExecArgs {
-    #[structopt(
+    #[clap(
         value_name = "TARGET",
-        help = "the path or alias of the repo(s) to execute the command in"
+        about = "the path or alias of the repo(s) to execute the command in"
     )]
     target: Option<String>,
-    #[structopt(
+    #[clap(
         value_name = "COMMAND",
-        help = "the command to execute",
+        about = "the command to execute",
         required = true,
         parse(from_os_str)
     )]
     command: Vec<OsString>,
-    #[structopt(
+    #[clap(
         long,
         short,
         value_name = "SHELL",
-        help = "the shell to execute the command in",
+        about = "the shell to execute the command in",
         possible_values = Shell::POSSIBLE_VALUES,
         parse(try_from_str)
     )]

@@ -1,13 +1,13 @@
-use structopt::StructOpt;
+use clap::Clap;
 
 use crate::config::Config;
 use crate::output::Output;
 use crate::{alias, cli};
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Resolve a path or alias", no_version)]
+#[derive(Debug, Clap)]
+#[clap(about = "Resolve a path or alias")]
 pub struct ResolveArgs {
-    #[structopt(name = "TARGET", help = "the path or alias of the repo or folder")]
+    #[clap(name = "TARGET", about = "the path or alias of the repo or folder")]
     target: String,
 }
 
