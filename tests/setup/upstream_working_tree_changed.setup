@@ -8,7 +8,9 @@ CD /
 GIT clone upstream local --origin upstream
 
 CD /upstream
-GIT commit --message "Commit 2" --allow-empty
+WRITE file.txt upstreamchanged
+GIT add file.txt
+GIT commit --message "Commit 2"
 
 CD /local
 WRITE file.txt changed

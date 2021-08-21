@@ -61,7 +61,7 @@ pull_test!(
 );
 pull_test!(
     upstream_working_tree_changed,
-    r#"{"kind":"error","path":"","message":"working tree has uncommitted changes","source":null}"#,
+    r#"{"kind":"error","path":"","message":"1 conflict prevents checkout","source":null}"#,
     |path| {
         path.child("local/file.txt").assert("changed");
     }

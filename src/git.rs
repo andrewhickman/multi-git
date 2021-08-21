@@ -296,12 +296,6 @@ impl Repository {
             Some("multi-git: fetching"),
         )?;
 
-        if status.working_tree.is_dirty() {
-            return Err(crate::Error::from_message(
-                "working tree has uncommitted changes",
-            ));
-        }
-
         let default_branch = match &status.default_branch {
             Some(name) => name.clone(),
             None => self.default_branch_for_remote(&remote)?,
