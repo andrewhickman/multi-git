@@ -259,23 +259,35 @@ impl Repository {
             None => self.default_remote(settings)?,
         };
 
-        let repo_config = self.repo.config()?;
+        let repo_config = &self.repo.config()?;
 
-        let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.transfer_progress(|progress| {
-            progress_callback(progress);
-            true
-        });
-
+        let mut connect_callbacks = git2::RemoteCallbacks::new();
         let mut credentials_state = CredentialsState::default();
-        callbacks.credentials(|url, username_from_url, allowed_types| {
+        connect_callbacks.credentials(move |url, username_from_url, allowed_types| {
             credentials_state.get(
                 settings,
-                &repo_config,
+                repo_config,
                 url,
                 username_from_url,
                 allowed_types,
             )
+        });
+
+        let mut fetch_callbacks = git2::RemoteCallbacks::new();
+        let mut credentials_state = CredentialsState::default();
+        fetch_callbacks.credentials(move |url, username_from_url, allowed_types| {
+            credentials_state.get(
+                settings,
+                repo_config,
+                url,
+                username_from_url,
+                allowed_types,
+            )
+        });
+
+        fetch_callbacks.transfer_progress(|progress| {
+            progress_callback(progress);
+            true
         });
 
         let prune = match settings.prune {
@@ -284,21 +296,12 @@ impl Repository {
             Some(true) => git2::FetchPrune::On,
         };
 
-        remote.fetch::<String>(
-            &[],
-            Some(
-                &mut git2::FetchOptions::new()
-                    .remote_callbacks(callbacks)
-                    .download_tags(git2::AutotagOption::All)
-                    .update_fetchhead(true)
-                    .prune(prune),
-            ),
-            Some("multi-git: fetching"),
-        )?;
+        let mut remote_connection =
+            remote.connect_auth(git2::Direction::Fetch, Some(connect_callbacks), None)?;
 
         let default_branch = match &status.default_branch {
             Some(name) => name.clone(),
-            None => self.default_branch_for_remote(&remote)?,
+            None => self.default_branch_for_remote(remote_connection.remote())?,
         };
         if !status.head.on_branch(&default_branch) {
             if switch {
@@ -314,11 +317,36 @@ impl Repository {
             }
         }
 
-        let fetch_head = self.repo.annotated_commit_from_fetchhead(
-            &default_branch,
-            remote.url().expect("remote url is invalid utf-8"),
-            &self.repo.refname_to_id("FETCH_HEAD")?,
+        remote_connection.remote().fetch::<String>(
+            &[],
+            Some(
+                &mut git2::FetchOptions::new()
+                    .remote_callbacks(fetch_callbacks)
+                    .download_tags(git2::AutotagOption::All)
+                    .update_fetchhead(true)
+                    .prune(prune),
+            ),
+            Some("multi-git: fetching"),
         )?;
+
+        let mut fetch_head = None;
+        self.repo
+            .fetchhead_foreach(|ref_name, remote_url, oid, is_merge| {
+                if is_merge {
+                    fetch_head = Some(self.repo.annotated_commit_from_fetchhead(
+                        ref_name,
+                        remote_url.expect("remote url is invalid utf-8"),
+                        oid,
+                    ));
+                    false
+                } else {
+                    true
+                }
+            })?;
+        let fetch_head = match fetch_head {
+            Some(fetch_head) => fetch_head?,
+            None => return Err(crate::Error::from_message("no branch found to merge")),
+        };
 
         let (merge_analysis, _) = self.repo.merge_analysis(&[&fetch_head])?;
 

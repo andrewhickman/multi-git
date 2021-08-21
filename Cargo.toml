@@ -19,7 +19,7 @@ path = "src/main.rs"
 
 [dependencies]
 crossterm = "0.19.0"
-git2 = "0.13.19"
+git2 = "0.13.21"
 rayon = "1.5.1"
 serde = { version = "1.0.126", features = ["derive"] }
 toml = "0.5.8"
@@ -52,3 +52,7 @@ predicates = "2.0.0"
 regex = "1.5.4"
 shell-words = "1.0.0"
 which = "4.1.0"
+
+[patch.crates-io]
+#git2 = { path = "../public/git2-rs" }
+git2 = { git = "https://github.com/andrewhickman/git2-rs.git", branch = "fetchhead-foreach" }
