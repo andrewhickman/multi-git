@@ -67,7 +67,7 @@ pub fn edit(f: impl FnOnce(&mut Document) -> crate::Result<()>) -> crate::Result
     f(&mut document)?;
 
     log::debug!("Writing config to `{}`", path.display());
-    fs_err::write(path, document.to_string_in_original_order())?;
+    fs_err::write(path, document.to_string())?;
     Ok(())
 }
 

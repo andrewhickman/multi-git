@@ -85,23 +85,19 @@ pub fn run(
             path.display()
         ));
         config::edit(|document| {
-            let aliases = document
-                .as_table_mut()
-                .entry("aliases")
-                .as_table_mut()
-                .ok_or_else(|| crate::Error::from_message("expected `aliases` to be a table"))?;
-            if aliases.contains_key(alias) {
-                return Err(crate::Error::from_message(format!(
-                    "alias `{}` already exists",
-                    alias
-                )));
+            match document.as_table_mut().entry("aliases") {
+                toml_edit::Entry::Occupied(_) => {
+                    return Err(crate::Error::from_message(format!(
+                        "alias `{}` already exists",
+                        alias
+                    )))
+                }
+                toml_edit::Entry::Vacant(entry) => {
+                    entry.insert(toml_edit::value(relative_path.to_str().ok_or_else(
+                        || crate::Error::from_message(format!("path is invalid UTF-16")),
+                    )?));
+                }
             }
-
-            aliases[alias] =
-                toml_edit::value(relative_path.to_str().ok_or_else(|| {
-                    crate::Error::from_message(format!("path is invalid UTF-16"))
-                })?);
-
             Ok(())
         })?;
     }
