@@ -18,41 +18,38 @@ name = "mgit"
 path = "src/main.rs"
 
 [dependencies]
-crossterm = "0.19.0"
-git2 = "0.13.21"
+crossterm = "0.21.0"
+git2 = "0.13.22"
 rayon = "1.5.1"
-serde = { version = "1.0.126", features = ["derive"] }
+serde = { version = "1.0.130", features = ["derive"] }
 toml = "0.5.8"
-globset = "0.4.6"
+globset = "0.4.8"
 log = { version = "0.4.14", features = ["std", "serde"] }
 fs-err = "2.6.0"
 human-panic = "1.0.3"
+structopt = "0.3.23"
 bstr = "0.2.16"
 strsim = "0.10.0"
 num_cpus = "1.13.0"
 url = "2.2.2"
 toml_edit = "0.3.0"
-fn-error-context = "0.1.2"
+fn-error-context = "0.2.0"
 serde_ignored = "0.1.2"
-serde_json = "1.0.64"
+serde_json = "1.0.67"
 backtrace = "0.3.61"
 dirs = "3.0.2"
 chrono = { version = "0.4.19", features = ["serde"] }
 clap = { version = "3.0.0-beta.4", features = ["color", "derive"] }
 
 [build-dependencies.vergen]
-version = "5.1.6"
+version = "5.1.15"
 default-features = false
 features = ["git"]
 
 [dev-dependencies]
-assert_cmd = "1.0.7"
-assert_fs = "1.0.3"
-predicates = "2.0.0"
+assert_cmd = "2.0.1"
+assert_fs = "1.0.5"
+predicates = "2.0.2"
 regex = "1.5.4"
 shell-words = "1.0.0"
-which = "4.1.0"
-
-[patch.crates-io]
-#git2 = { path = "../public/git2-rs" }
-git2 = { git = "https://github.com/andrewhickman/git2-rs.git", branch = "fetchhead-foreach" }
+which = "4.2.2"

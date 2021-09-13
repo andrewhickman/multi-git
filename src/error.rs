@@ -67,12 +67,6 @@ impl From<git2::Error> for Error {
     }
 }
 
-impl From<crossterm::ErrorKind> for Error {
-    fn from(err: crossterm::ErrorKind) -> Error {
-        Error { inner: err.into() }
-    }
-}
-
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
         Error { inner: err.into() }

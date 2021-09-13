@@ -264,25 +264,13 @@ impl Repository {
         let mut connect_callbacks = git2::RemoteCallbacks::new();
         let mut credentials_state = CredentialsState::default();
         connect_callbacks.credentials(move |url, username_from_url, allowed_types| {
-            credentials_state.get(
-                settings,
-                repo_config,
-                url,
-                username_from_url,
-                allowed_types,
-            )
+            credentials_state.get(settings, repo_config, url, username_from_url, allowed_types)
         });
 
         let mut fetch_callbacks = git2::RemoteCallbacks::new();
         let mut credentials_state = CredentialsState::default();
         fetch_callbacks.credentials(move |url, username_from_url, allowed_types| {
-            credentials_state.get(
-                settings,
-                repo_config,
-                url,
-                username_from_url,
-                allowed_types,
-            )
+            credentials_state.get(settings, repo_config, url, username_from_url, allowed_types)
         });
 
         fetch_callbacks.transfer_progress(|progress| {
@@ -335,7 +323,7 @@ impl Repository {
                 if is_merge {
                     fetch_head = Some(self.repo.annotated_commit_from_fetchhead(
                         ref_name,
-                        remote_url.expect("remote url is invalid utf-8"),
+                        str::from_utf8(remote_url).expect("remote url is invalid utf-8"),
                         oid,
                     ));
                     false
