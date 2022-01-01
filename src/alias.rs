@@ -190,5 +190,5 @@ fn suggest_path_segments(path: &Path, confidence: f64, segment: &OsStr) -> Vec<(
 }
 
 fn jaro_winkler_path(a: &OsStr, b: &OsStr) -> f64 {
-    strsim::jaro_winkler(&a.to_string_lossy().as_ref(), &b.to_string_lossy().as_ref())
+    strsim::jaro_winkler(a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref())
 }

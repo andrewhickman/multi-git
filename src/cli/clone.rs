@@ -3,7 +3,7 @@ use std::ffi::{OsStr, OsString};
 use std::path::Path;
 use std::str::FromStr;
 
-use clap::{AppSettings, Clap};
+use clap::{AppSettings, Parser};
 use url::Url;
 
 use crate::cli::pull::PullLineContent;
@@ -11,18 +11,18 @@ use crate::config::{self, Config};
 use crate::output::Output;
 use crate::{alias, cli, git};
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Clone a new repo")]
 #[clap(setting = AppSettings::AllowMissingPositional)]
 pub struct CloneArgs {
     #[clap(
         value_name = "TARGET",
-        about = "the path or alias of the parent directory to clone into"
+        help = "the path or alias of the parent directory to clone into"
     )]
     target: Option<String>,
     #[clap(
         value_name = "REPOSITORY",
-        about = "the repository to clone from",
+        help = "the repository to clone from",
         parse(from_str)
     )]
     repo: UrlOrPath,
@@ -30,7 +30,7 @@ pub struct CloneArgs {
         long,
         short,
         value_name = "NAME",
-        about = "the name of the directory to create for the new repository",
+        help = "the name of the directory to create for the new repository",
         parse(from_os_str)
     )]
     name: Option<OsString>,
@@ -38,7 +38,7 @@ pub struct CloneArgs {
         long,
         short,
         value_name = "ALIAS",
-        about = "an alias to create for the new repository"
+        help = "an alias to create for the new repository"
     )]
     alias: Option<String>,
 }
@@ -94,7 +94,7 @@ pub fn run(
                 }
                 toml_edit::Entry::Vacant(entry) => {
                     entry.insert(toml_edit::value(relative_path.to_str().ok_or_else(
-                        || crate::Error::from_message(format!("path is invalid UTF-16")),
+                        || crate::Error::from_message("path is invalid UTF-16"),
                     )?));
                 }
             }

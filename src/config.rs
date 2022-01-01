@@ -123,7 +123,6 @@ impl Config {
             editor,
             ignore,
             prune,
-            glob: _,
         } = Default::default();
 
         Ok(Config {
@@ -148,9 +147,8 @@ impl Config {
             default_remote: self.default_remote.clone(),
             ssh: self.ssh.clone(),
             editor: self.editor.clone(),
-            ignore: self.ignore.clone(),
-            prune: self.prune.clone(),
-            glob: String::new(),
+            ignore: self.ignore,
+            prune: self.prune,
         }
     }
 
@@ -193,8 +191,6 @@ pub struct Settings {
     pub editor: Option<String>,
     pub ignore: Option<bool>,
     pub prune: Option<bool>,
-    #[serde(skip)]
-    glob: String,
 }
 
 #[derive(Debug, Default, Deserialize, Clone)]
@@ -260,7 +256,7 @@ impl<'de> Deserialize<'de> for SettingsMatcher {
 
                 while let Some((glob, entry)) = map.next_entry::<String, Settings>()? {
                     globs.add(Glob::new(&glob).map_err(de::Error::custom)?);
-                    settings.push(Settings { glob, ..entry });
+                    settings.push(entry);
                 }
 
                 Ok(SettingsMatcher {

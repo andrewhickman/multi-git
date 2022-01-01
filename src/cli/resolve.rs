@@ -1,13 +1,13 @@
-use clap::Clap;
+use clap::Parser;
 
 use crate::config::Config;
 use crate::output::Output;
 use crate::{alias, cli};
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Resolve a path or alias")]
 pub struct ResolveArgs {
-    #[clap(name = "TARGET", about = "the path or alias of the repo or folder")]
+    #[clap(name = "TARGET", help = "the path or alias of the repo or folder")]
     target: String,
 }
 

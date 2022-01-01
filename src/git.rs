@@ -165,11 +165,11 @@ impl Repository {
             _ => {
                 let object = head.peel(git2::ObjectType::Any)?;
                 let description = object.describe(
-                    &git2::DescribeOptions::new()
+                    git2::DescribeOptions::new()
                         .describe_tags()
                         .show_commit_oid_as_fallback(true),
                 )?;
-                let name = description.format(None)?.into();
+                let name = description.format(None)?;
                 Ok(HeadStatus {
                     name,
                     kind: HeadStatusKind::Detached,
@@ -211,7 +211,7 @@ impl Repository {
 
     fn working_tree_status(&self) -> Result<WorkingTreeStatus, git2::Error> {
         let statuses = self.repo.statuses(Some(
-            &mut git2::StatusOptions::new()
+            git2::StatusOptions::new()
                 .exclude_submodules(true)
                 .include_ignored(false),
         ))?;
@@ -308,7 +308,7 @@ impl Repository {
         remote_connection.remote().fetch::<String>(
             &[],
             Some(
-                &mut git2::FetchOptions::new()
+                git2::FetchOptions::new()
                     .remote_callbacks(fetch_callbacks)
                     .download_tags(git2::AutotagOption::All)
                     .update_fetchhead(true)
@@ -375,7 +375,7 @@ impl Repository {
         debug_assert!(branch.is_head());
         self.repo.checkout_tree(
             &self.repo.find_object(fetch_commit.id(), None)?,
-            Some(&mut git2::build::CheckoutBuilder::new().safe()),
+            Some(git2::build::CheckoutBuilder::new().safe()),
         )?;
         branch
             .get_mut()
@@ -420,7 +420,7 @@ impl Repository {
             Some(git2::build::CheckoutBuilder::new().safe()),
         )?;
         self.repo
-            .set_head(&reference.name().expect("ref name is invalid utf-8"))?;
+            .set_head(reference.name().expect("ref name is invalid utf-8"))?;
         Ok(())
     }
 
@@ -509,24 +509,15 @@ impl RepositoryStatus {
 
 impl HeadStatus {
     fn is_branch(&self) -> bool {
-        match self.kind {
-            HeadStatusKind::Branch => true,
-            _ => false,
-        }
+        matches!(self.kind, HeadStatusKind::Branch)
     }
 
     fn is_unborn(&self) -> bool {
-        match self.kind {
-            HeadStatusKind::Unborn => true,
-            _ => false,
-        }
+        matches!(self.kind, HeadStatusKind::Unborn)
     }
 
     fn is_detached(&self) -> bool {
-        match self.kind {
-            HeadStatusKind::Detached => true,
-            _ => false,
-        }
+        matches!(self.kind, HeadStatusKind::Detached)
     }
 
     pub fn on_branch(&self, name: impl AsRef<[u8]>) -> bool {

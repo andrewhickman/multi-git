@@ -3,7 +3,7 @@ use std::io::{self, Write as _};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use clap::Clap;
+use clap::Parser;
 use crossterm::style::{Color, ResetColor, SetForegroundColor};
 use crossterm::terminal::{self, Clear, ClearType};
 use serde::Serialize;
@@ -14,15 +14,15 @@ use crate::progress::ProgressBar;
 use crate::walk::{self, walk_with_output};
 use crate::{alias, cli, git};
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Pull changes in your repos")]
 pub struct PullArgs {
     #[clap(
         value_name = "TARGET",
-        about = "the path or alias of the repo(s) to pull"
+        help = "the path or alias of the repo(s) to pull"
     )]
     target: Option<String>,
-    #[clap(long, about = "whether to switch to the default branch before pulling")]
+    #[clap(long, help = "whether to switch to the default branch before pulling")]
     switch: bool,
 }
 
@@ -91,7 +91,6 @@ impl PullLineContent {
             .status(&entry.settings)
             .map_err(|err| crate::Error::with_context(err, "failed to get repo status"))
             .and_then(|(status, remote)| {
-                let line = line.clone();
                 entry
                     .repo
                     .pull(&entry.settings, &status, remote, switch, move |progress| {

@@ -39,10 +39,10 @@ fn run(out: &Output, args: &cli::Args) -> Result<()> {
 
     match &args.command {
         cli::Command::Edit(edit_args) => cli::edit(args, edit_args, &config),
-        cli::Command::Status(status_args) => cli::status(out, &args, status_args, &config),
-        cli::Command::Pull(pull_args) => cli::pull(out, &args, pull_args, &config),
-        cli::Command::Resolve(resolve_args) => cli::resolve(out, &args, resolve_args, &config),
-        cli::Command::Exec(exec_args) => cli::exec(out, &args, exec_args, &config),
-        cli::Command::Clone(clone_args) => cli::clone(out, &args, clone_args, &config),
+        cli::Command::Status(status_args) => cli::status(out, args, status_args, &config),
+        cli::Command::Pull(pull_args) => cli::pull(out, args, pull_args, &config),
+        cli::Command::Resolve(resolve_args) => cli::resolve(out, args, resolve_args, &config),
+        cli::Command::Exec(exec_args) => cli::exec(out, args, exec_args, &config),
+        cli::Command::Clone(clone_args) => cli::clone(out, args, clone_args, &config),
     }
 }

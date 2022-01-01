@@ -10,7 +10,7 @@ use std::{
 use std::{path::PathBuf, process::Command};
 use std::{process::Stdio, str::FromStr};
 
-use clap::{AppSettings, Clap};
+use clap::{AppSettings, Parser};
 use crossterm::{
     style::{Attribute, SetAttribute},
     terminal::{self, Clear, ClearType},
@@ -25,19 +25,19 @@ use crate::{
     walk::{self, walk_with_output},
 };
 
-#[derive(Debug, Clap)]
-#[clap(about = "Run a command in one or more repos")]
+#[derive(Debug, Parser)]
+#[clap(override_help = "Run a command in one or more repos")]
 #[clap(setting = AppSettings::TrailingVarArg)]
 #[clap(setting = AppSettings::AllowMissingPositional)]
 pub struct ExecArgs {
     #[clap(
         value_name = "TARGET",
-        about = "the path or alias of the repo(s) to execute the command in"
+        help = "the path or alias of the repo(s) to execute the command in"
     )]
     target: Option<String>,
     #[clap(
         value_name = "COMMAND",
-        about = "the command to execute",
+        help = "the command to execute",
         required = true,
         parse(from_os_str)
     )]
@@ -46,7 +46,7 @@ pub struct ExecArgs {
         long,
         short,
         value_name = "SHELL",
-        about = "the shell to execute the command in",
+        help = "the shell to execute the command in",
         possible_values = Shell::POSSIBLE_VALUES,
         parse(try_from_str)
     )]

@@ -18,38 +18,38 @@ name = "mgit"
 path = "src/main.rs"
 
 [dependencies]
-crossterm = "0.21.0"
-git2 = "0.13.22"
+crossterm = "0.22.1"
+git2 = "0.13.25"
 rayon = "1.5.1"
-serde = { version = "1.0.130", features = ["derive"] }
+serde = { version = "1.0.132", features = ["derive"] }
 toml = "0.5.8"
 globset = "0.4.8"
 log = { version = "0.4.14", features = ["std", "serde"] }
 fs-err = "2.6.0"
 human-panic = "1.0.3"
-structopt = "0.3.23"
-bstr = "0.2.16"
+structopt = "0.3.25"
+bstr = "0.2.17"
 strsim = "0.10.0"
-num_cpus = "1.13.0"
+num_cpus = "1.13.1"
 url = "2.2.2"
-toml_edit = "0.3.0"
+toml_edit = "0.12.3"
 fn-error-context = "0.2.0"
 serde_ignored = "0.1.2"
-serde_json = "1.0.67"
-backtrace = "0.3.61"
-dirs = "3.0.2"
+serde_json = "1.0.73"
+backtrace = "0.3.63"
+dirs = "4.0.0"
 chrono = { version = "0.4.19", features = ["serde"] }
-clap = { version = "3.0.0-beta.4", features = ["color", "derive"] }
+clap = { version = "3.0.0", features = ["color", "derive"] }
 
 [build-dependencies.vergen]
-version = "5.1.15"
+version = "6.0.0"
 default-features = false
 features = ["git"]
 
 [dev-dependencies]
-assert_cmd = "2.0.1"
-assert_fs = "1.0.5"
-predicates = "2.0.2"
+assert_cmd = "2.0.2"
+assert_fs = "1.0.6"
+predicates = "2.1.0"
 regex = "1.5.4"
 shell-words = "1.0.0"
 which = "4.2.2"

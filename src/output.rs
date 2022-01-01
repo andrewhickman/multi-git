@@ -116,7 +116,7 @@ impl Output {
         self.writeln(|stdout| err.write(stdout)).ok();
     }
 
-    pub fn block<'out>(&'out self) -> crate::Result<Block<'out>> {
+    pub fn block(&self) -> crate::Result<Block<'_>> {
         if !self.json {
             terminal::enable_raw_mode()?;
             crossterm::queue!(self.stdout.lock(), cursor::Hide, cursor::DisableBlinking)?;
@@ -272,7 +272,7 @@ impl<'out> BlockInner<'out> {
     }
 
     fn reset_cursor(&mut self, stdout: &mut io::StdoutLock) -> crossterm::Result<()> {
-        if self.range.len() != 0 {
+        if !self.range.is_empty() {
             crossterm::queue!(stdout, MoveUp(self.range.len() as u16))?;
         }
         Ok(())

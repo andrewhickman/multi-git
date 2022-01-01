@@ -12,7 +12,7 @@ pub use self::pull::{run as pull, PullArgs};
 pub use self::resolve::{run as resolve, ResolveArgs};
 pub use self::status::{run as status, StatusArgs};
 
-use clap::{AppSettings, Clap};
+use clap::{Parser, Subcommand};
 
 pub fn parse_args() -> Args {
     Args::parse()
@@ -20,32 +20,31 @@ pub fn parse_args() -> Args {
 
 const VERSION: &str = env!("VERGEN_GIT_SHA");
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(
+    author,
     about = "Utility for managing multiple git repos",
     bin_name = "mgit",
     version = VERSION,
 )]
-#[clap(global_setting = AppSettings::UnifiedHelpMessage)]
-#[clap(global_setting = AppSettings::ColoredHelp)]
 pub struct Args {
     #[clap(subcommand)]
     pub command: Command,
-    #[clap(long, global = true, short = 'A', about = "Disable aliases")]
+    #[clap(long, global = true, short = 'A', help = "Disable aliases")]
     pub no_alias: bool,
     #[clap(
         long,
         short,
         global = true,
-        about = "Number of threads to use. If set to 0, uses the number of available CPUs",
+        help = "Number of threads to use. If set to 0, uses the number of available CPUs",
         default_value = "0"
     )]
     pub jobs: usize,
-    #[clap(long, global = true, about = "Print output in JSON Lines format")]
+    #[clap(long, global = true, help = "Print output in JSON Lines format")]
     pub json: bool,
 }
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Subcommand)]
 pub enum Command {
     #[clap(name = "edit")]
     Edit(EditArgs),

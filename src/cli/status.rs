@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use clap::Clap;
+use clap::Parser;
 use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use crossterm::terminal::{self, Clear, ClearType};
 use serde::Serialize;
@@ -13,12 +13,12 @@ use crate::output::{self, LineContent, Output};
 use crate::walk::{self, walk_with_output};
 use crate::{alias, cli, git};
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Show the status of your repos")]
 pub struct StatusArgs {
     #[clap(
         value_name = "TARGET",
-        about = "the path or alias of the repo(s) to get status for"
+        help = "the path or alias of the repo(s) to get status for"
     )]
     target: Option<String>,
 }
