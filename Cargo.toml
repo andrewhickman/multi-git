@@ -50,6 +50,6 @@ features = ["git"]
 assert_cmd = "2.0.2"
 assert_fs = "1.0.6"
 predicates = "2.1.0"
-regex = "1.5.4"
+regex = "1.5.5"
 shell-words = "1.0.0"
 which = "4.2.2"
